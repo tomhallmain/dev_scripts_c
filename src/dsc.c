@@ -1,8 +1,10 @@
 #include "dsc.h"
+#include "same-inode.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 int main(int argc, char **argv) {
@@ -12,45 +14,45 @@ int main(int argc, char **argv) {
     fail("No routine provided.");
   }
 
-  int (*mainFunc)(int, char **, char *, int fd, char *);
-  char *(*fsFunc)(int, char **, char *, int fd) = inferFieldSeparator;
+  int (*mainFunc)(int, char **, struct data_file *);
+  int (*fsFunc)(int, char **, struct data_file *) = inferFieldSeparator;
   char program[25];
   strcpy(program, argv[1]);
   int argsBaseOffset = 2;
-  int useFile = 1; // If not using filename, set to 0 below
-  int fd = -1;
+  bool useFile = true; // If not using filename, set to false below
   int inferfs = 0;
 
-  if (match(program, PROGRAM_INDEX)) {
+  if (strcmp(program, PROGRAM_INDEX) == 0) {
     mainFunc = runIndex;
-  } else if (match(program, PROGRAM_IFS)) {
+  } else if (strcmp(program, PROGRAM_IFS) == 0) {
     mainFunc = NULL;
     inferfs = 1;
   } else {
-    perror("Invalid method provided.");
+    fail("Invalid method provided.");
     return 1;
   }
 
   int argsOffset = argsBaseOffset + useFile;
-  char filename[25];
+  struct data_file file;
+  file.fd = -1;
 
   // Get filename if provided and valid - otherwise use stdin
   if (useFile) {
-    if (argc > 2 && !(match(argv[2], "--"))) {
-      fd = open(argv[2], O_RDONLY);
+    if (argc > 2 && !(strcmp(argv[2], "--") == 0)) {
+      file.fd = open(argv[2], O_RDONLY);
 
-      if (fd > 2) {
-        close(fd);
-        strcpy(filename, argv[2]);
-        useFile = 1;
+      if (file.fd > 2) {
+        close(file.fd);
+        strcpy(file.filename, argv[2]);
+        useFile = true;
       } else {
-        useFile = 0;
+        useFile = false;
       }
     } else {
-      fd = 0;
+      file.fd = 0;
     }
   } else {
-    useFile = 0;
+    useFile = false;
   }
 
   // allocate memory and copy arguments
@@ -66,18 +68,30 @@ int main(int argc, char **argv) {
   }
 
   newArgv[argc - argsOffset] = NULL;
-  char *fs = NULL;
 
   if (fsFunc && useFile) {
-    fs = fsFunc(newArgc, newArgv, filename, fd);
+    fsFunc(newArgc, newArgv, &file);
 
     if (inferfs) {
-      printf("%s", fs);
+      printf("%s", file.fs);
       return 0;
     }
   }
 
-  mainFunc(newArgc, newArgv, filename, fd, fs);
+  bool dev_null_output = false;
+  bool possibly_tty = false;
+  struct stat tmp_stat;
+  if (fstat(STDOUT_FILENO, &tmp_stat) == 0) {
+    if (S_ISCHR(tmp_stat.st_mode)) {
+      struct stat null_stat;
+      if (stat("/dev/null", &null_stat) == 0 && SAME_INODE(tmp_stat, null_stat))
+        dev_null_output = true;
+      else
+        possibly_tty = true;
+    }
+  }
+
+  mainFunc(newArgc, newArgv, &file);
 
   /*
   // free memory

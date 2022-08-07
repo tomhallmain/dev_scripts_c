@@ -15,14 +15,14 @@ char *intToChar(int x) {
   }
 }
 
-int regexMatch(char *pattern, char *testString) {
+int rematch(char *pattern, char *testString) {
   regex_t regex;
   int reti;
-  DEBUG_PRINT(("%s\n", "regexMatch"));
+  DEBUG_PRINT(("%s\n", "rematch"));
   reti = regcomp(&regex, pattern, REG_EXTENDED);
 
   if (reti) {
-    DEBUG_PRINT(("%s\n", "regexMatchErr"));
+    DEBUG_PRINT(("%s\n", "rematchErr"));
     fail("Could not compile regex\n");
   }
 

@@ -1,3 +1,4 @@
+ds
 *.o
-testprogram
+*.swp
 *.DS_Store
