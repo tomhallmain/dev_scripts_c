@@ -1,4 +1,5 @@
 #include "dsc.h"
+#include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,13 +9,55 @@ char *intToChar(int x) {
   char *x_char;
 
   if (sprintf(x_char, "%d", x) == -1) {
-    perror("sprintf");
+    fail("sprintf");
+  } else {
+    return x_char;
   }
-
-  return x_char;
 }
 
-char *inferFieldSeparator(char *filename) { return " "; }
+int regexMatch(char *pattern, char *testString) {
+  regex_t regex;
+  int reti;
+  DEBUG_PRINT(("%s\n", "regexMatch"));
+  reti = regcomp(&regex, pattern, REG_EXTENDED);
+
+  if (reti) {
+    DEBUG_PRINT(("%s\n", "regexMatchErr"));
+    fail("Could not compile regex\n");
+  }
+
+  reti = regexec(&regex, testString, 0, NULL, 0);
+  return reti ? 0 : 1;
+}
+
+int stdincpy(void) {
+  char template[18] = "/tmp/stdin_XXXXXX";
+  int tempfd = mkstemp(template);
+
+  DEBUG_PRINT(("%s\n", "using stdin, copying to temporary file"));
+  DEBUG_PRINT(("%s\n", template));
+
+  if (feof(stdin))
+    printf("stdin reached eof\n");
+
+  FILE *fp = fdopen(tempfd, "w");
+
+  if (fp == 0)
+    printf("something went wrong opening temp file\n");
+
+  unsigned long nbytes;
+  char buffer[BUF_SIZE];
+
+  while ((nbytes = fread(buffer, 1, BUF_SIZE, stdin))) {
+    fwrite(buffer, nbytes, 1, fp);
+  }
+
+  if (ferror(stdin))
+    printf("error reading from stdin");
+
+  rewind(fp);
+  return tempfd;
+}
 
 // if (checkStdin()) {
 //     fp = tmpfile();
@@ -28,7 +71,6 @@ char *inferFieldSeparator(char *filename) { return " "; }
 bool checkStdin() {
   DEBUG_PRINT(("%s\n", "in checkStdin"));
   int ch = getchar();
-  DEBUG_PRINT(("%s\n", "got char"));
   if (ch == EOF) {
     DEBUG_PRINT(("%s\n", "char was EOF"));
     if (!(feof(stdin))) {
@@ -38,7 +80,7 @@ bool checkStdin() {
   } else {
     DEBUG_PRINT(("%s\n", "char was not EOF"));
     ungetc(ch, stdin); // put back
-    DEBUG_PRINT(("%s\n", "char ungotten"));
+    DEBUG_PRINT(("%s\n", "char put back"));
     return true;
   }
 }
@@ -47,11 +89,11 @@ int getLinesCount(FILE *fp) {
   int totalLines = 0;
 
   if (fp == NULL) {
-    perror("Error while opening the file.\n");
-    exit(EXIT_FAILURE);
+    DEBUG_PRINT(("%s\n", "fp was NULL"));
+    fail("Error while opening the file.\n");
   }
 
-  char chr = getc(fp);
+  int chr = getc(fp);
   while (chr != EOF) {
     if (chr == '\n') {
       totalLines++;
@@ -59,7 +101,10 @@ int getLinesCount(FILE *fp) {
     chr = getc(fp);
   }
 
-  rewind(fp);
+  if (fileno(fp) > 2) {
+    rewind(fp);
+  }
+
   return totalLines;
 }
 
