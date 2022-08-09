@@ -14,8 +14,8 @@ int main(int argc, char **argv) {
     fail("No routine provided.");
   }
 
-  int (*mainFunc)(int, char **, struct data_file *);
-  int (*fsFunc)(int, char **, struct data_file *) = inferFieldSeparator;
+  int (*mainFunc)(int, char **, data_file *);
+  int (*fsFunc)(int, char **, data_file *) = inferFieldSeparator;
   char program[25];
   strcpy(program, argv[1]);
   int argsBaseOffset = 2;

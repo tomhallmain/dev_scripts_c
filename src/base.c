@@ -126,3 +126,9 @@ int getIntCharLen(int input) {
   }
   return len + negative;
 }
+
+char *nstpcpy(char *buff, char *strings[], int len) {
+  for (int i = 0; i < len; i++) {
+    buff = stpcpy(buff, strings[i]);
+  }
+}

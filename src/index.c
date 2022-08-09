@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int runIndex(int argc, char **argv, struct data_file *file) {
+int runIndex(int argc, char **argv, data_file *file) {
   FILE *fp;
 
   DEBUG_PRINT(("%s\n", "Running index"));
@@ -44,15 +44,15 @@ int runIndex(int argc, char **argv, struct data_file *file) {
     printf("%s", "");
     char *indSpLen = intToChar(indLen);
 
-    char *printfStart = "%";
-    char *printfEnd = "d%s%s\n";
+    const char *printfStart = "%";
+    const char *printfEnd = "d%s%s\n";
     printfStr =
         (char *)malloc(1 + strlen(printfStart) + indLen + strlen(printfEnd));
     strcpy(printfStr, printfStart);
     strcat(printfStr, indSpLen);
     strcat(printfStr, printfEnd);
   } else {
-    printfStr = "%d%s%s";
+    printfStr = "%d%s%s\n";
   }
 
   int ind = 0;
@@ -64,6 +64,8 @@ int runIndex(int argc, char **argv, struct data_file *file) {
   }
 
   fclose(fp);
-  free(printfStr);
+  if (space_fs) {
+    free(printfStr);
+  }
   return 0;
 }
