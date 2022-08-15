@@ -246,6 +246,14 @@ bool hashmap_get_set(hashmap *m, void *key, size_t ksize, uintptr_t *out_in) {
   return true;
 }
 
+bool map_get_set(hashmap *m, void *key, uintptr_t *out_in) {
+  return hashmap_get_set(m, key, sizeof(key), out_in);
+}
+
+bool map_get_set_(hashmap *m, void *key, uintptr_t *out_in) {
+  return hashmap_get_set(m, key, sizeof(key) + 1, out_in);
+}
+
 void hashmap_set_free(hashmap *m, void *key, size_t ksize, uintptr_t val,
                       hashmap_callback c, void *usr) {
   if (m->count + 1 > HASHMAP_MAX_LOAD * m->capacity)

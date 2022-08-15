@@ -13,8 +13,10 @@ INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 CFLAGS := -Wall -Wstrict-prototypes -Wmissing-prototypes -Wshadow -Wconversion -g
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP
 
-CFLAGS += -DDEBUG=1
-CXXFLAGS += -g -DDEBUG=1
+#CFLAGS += -DDEBUG=1
+#CXXFLAGS += -g -DDEBUG=1
+
+#LD_FLAGS += -fsanitize=address -fno-omit-frame-pointer
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)

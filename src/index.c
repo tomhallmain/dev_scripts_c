@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int runIndex(int argc, char **argv, data_file *file) {
+int run_index(int argc, char **argv, data_file *file) {
   FILE *fp;
 
   DEBUG_PRINT(("%s\n", "Running index"));
@@ -25,13 +25,13 @@ int runIndex(int argc, char **argv, data_file *file) {
 
   // adjust field separator for special cases
 
-  if (rematch("\\[\\[:space:\\]\\]\\{2.\\}", fs)) {
+  if (rematch("\\[\\[:space:\\]\\]\\{2.\\}", fs, false)) {
     strcpy(fs, "  ");
     space_fs = true;
-  } else if (rematch("\\[.+\\]", fs)) {
+  } else if (rematch("\\[.+\\]", fs, false)) {
     strcpy(fs, " ");
     space_fs = true;
-  } else if (rematch("^\\ ", fs)) {
+  } else if (rematch("^\\ ", fs, false)) {
     strcpy(fs, "  ");
     space_fs = true;
   }
@@ -39,10 +39,10 @@ int runIndex(int argc, char **argv, data_file *file) {
   char *printfStr;
 
   if (space_fs) {
-    int totalLines = getLinesCount(fp);
-    int indLen = getIntCharLen(totalLines);
+    int totalLines = get_lines_count(fp);
+    int indLen = get_int_char_len(totalLines);
     printf("%s", "");
-    char *indSpLen = intToChar(indLen);
+    char *indSpLen = int_to_char(indLen);
 
     const char *printfStart = "%";
     const char *printfEnd = "d%s%s\n";

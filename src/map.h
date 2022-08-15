@@ -48,6 +48,8 @@ void map_put_(hashmap *map, void *key, uintptr_t value);
 // it existed in the first place.
 // returns true if the entry already existed, returns false otherwise.
 bool hashmap_get_set(hashmap *map, void *key, size_t ksize, uintptr_t *out_in);
+bool map_get_set(hashmap *m, void *key, uintptr_t *out_in);
+bool map_get_set_(hashmap *m, void *key, uintptr_t *out_in);
 
 // similar to `hashmap_set()`, but when overwriting an entry,
 // you'll be able properly free the old entry's data via a callback.
@@ -57,9 +59,7 @@ void hashmap_set_free(hashmap *map, void *key, size_t ksize, uintptr_t value,
                       hashmap_callback c, void *usr);
 
 bool hashmap_get(hashmap *map, void *key, size_t ksize, uintptr_t *out_val);
-
 bool map_get(hashmap *map, void *key, uintptr_t *out_val);
-
 bool map_get_(hashmap *map, void *key, uintptr_t *out_val);
 
 #ifdef __HASHMAP_REMOVABLE

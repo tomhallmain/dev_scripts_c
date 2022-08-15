@@ -14,25 +14,25 @@ int main(int argc, char **argv) {
     fail("No routine provided.");
   }
 
-  int (*mainFunc)(int, char **, data_file *);
-  int (*fsFunc)(int, char **, data_file *) = inferFieldSeparator;
+  int (*main_func)(int, char **, data_file *);
+  int (*fsFunc)(int, char **, data_file *) = infer_field_separator;
   char program[25];
   strcpy(program, argv[1]);
-  int argsBaseOffset = 2;
+  int args_base_offset = 2;
   bool useFile = true; // If not using filename, set to false below
   int inferfs = 0;
 
   if (strcmp(program, PROGRAM_INDEX) == 0) {
-    mainFunc = runIndex;
+    main_func = run_index;
   } else if (strcmp(program, PROGRAM_IFS) == 0) {
-    mainFunc = NULL;
+    main_func = NULL;
     inferfs = 1;
   } else {
     fail("Invalid method provided.");
     return 1;
   }
 
-  int argsOffset = argsBaseOffset + useFile;
+  int args_offset = args_base_offset + useFile;
   struct data_file file;
   file.fd = -1;
 
@@ -57,20 +57,20 @@ int main(int argc, char **argv) {
 
   // allocate memory and copy arguments
 
-  int newArgc = argc - 1 - useFile;
-  char **newArgv = malloc((newArgc) * sizeof *newArgv);
+  int new_argc = argc - 1 - useFile;
+  char **new_argv = malloc((new_argc) * sizeof *new_argv);
 
-  for (int i = 0; i < argc - argsOffset; ++i) {
-    size_t length = strlen(argv[i + argsOffset]) + 1;
-    newArgv[i] = malloc(length);
-    memcpy(newArgv[i], argv[i + argsOffset], length);
-    DEBUG_PRINT(("%s\n", newArgv[i]));
+  for (int i = 0; i < argc - args_offset; ++i) {
+    size_t length = strlen(argv[i + args_offset]) + 1;
+    new_argv[i] = malloc(length);
+    memcpy(new_argv[i], argv[i + args_offset], length);
+    DEBUG_PRINT(("%s\n", new_argv[i]));
   }
 
-  newArgv[argc - argsOffset] = NULL;
+  new_argv[argc - args_offset] = NULL;
 
   if (fsFunc && useFile) {
-    fsFunc(newArgc, newArgv, &file);
+    fsFunc(new_argc, new_argv, &file);
 
     if (inferfs) {
       printf("%s", file.fs);
@@ -91,14 +91,14 @@ int main(int argc, char **argv) {
     }
   }
 
-  mainFunc(newArgc, newArgv, &file);
+  main_func(new_argc, new_argv, &file);
 
   /*
   // free memory
   for(int i = 0; i < argc; ++i) {
-      free(newArgv[i]);
+      free(new_argv[i]);
   }
-  free(newArgv);
+  free(new_argv);
   */
 
   return 0;

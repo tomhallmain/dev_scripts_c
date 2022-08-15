@@ -1,11 +1,14 @@
 #include "dsc.h"
+#include "map.h"
 #include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-char *intToChar(int x) {
+static hashmap *regex_map = NULL;
+
+char *int_to_char(int x) {
   char *x_char;
 
   if (sprintf(x_char, "%d", x) == -1) {
@@ -15,19 +18,65 @@ char *intToChar(int x) {
   }
 }
 
-int rematch(char *pattern, char *testString) {
-  regex_t regex;
-  int reti;
-  DEBUG_PRINT(("%s\n", "rematch"));
-  reti = regcomp(&regex, pattern, REG_EXTENDED);
+// Following function extracts characters present in `src`
+// between `m` and `n` (excluding `n`)
+char *substr(const char *src, int m, int n) {
+  int len = n - m;
+  // allocate (len + 1) chars for destination
+  char *dest = (char *)malloc(sizeof(char) * (len + 1));
 
-  if (reti) {
-    DEBUG_PRINT(("%s\n", "rematchErr"));
-    fail("Could not compile regex\n");
+  // extract characters between m'th and n'th index from source string
+  // and copy them into the destination string
+  for (int i = m; i < n && (*(src + i) != '\0'); i++) {
+    *dest = *(src + i);
+    dest++;
   }
 
-  reti = regexec(&regex, testString, 0, NULL, 0);
-  return reti ? 0 : 1;
+  // null-terminate the destination string
+  *dest = '\0';
+  return dest - len;
+}
+
+regex_t get_compiled_regex(char *pattern, bool reuse) {
+  regex_t regex;
+
+  if (reuse) {
+    if (!regex_map) {
+      regex_map = hashmap_create();
+    }
+
+    uintptr_t pregex;
+
+    if (map_get_(regex_map, pattern, &pregex)) {
+      regex = *(regex_t *)pregex;
+    } else {
+      int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
+
+      if (compile_err) {
+        DEBUG_PRINT(("Failed to compile regex for pattern \"%s\" with error %d",
+                     pattern, compile));
+        fail("rematch error - could not compile regex");
+      }
+
+      map_put_(regex_map, pattern, (uintptr_t)malloc(sizeof(regex)));
+    }
+  } else {
+    int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
+
+    if (compile_err) {
+      DEBUG_PRINT(("Failed to compile regex for pattern \"%s\" with error %d",
+                   pattern, compile));
+      fail("rematch error - could not compile regex");
+    }
+  }
+
+  return regex;
+}
+
+int rematch(char *pattern, char *test_string, bool reuse) {
+  regex_t regex = get_compiled_regex(pattern, reuse);
+  int result = regexec(&regex, test_string, 0, NULL, 0);
+  return result ? 0 : 1;
 }
 
 int stdincpy(void) {
@@ -68,7 +117,7 @@ int stdincpy(void) {
 //     rewind(fp);
 // }
 
-bool checkStdin() {
+bool check_stdin() {
   DEBUG_PRINT(("%s\n", "in checkStdin"));
   int ch = getchar();
   if (ch == EOF) {
@@ -85,12 +134,12 @@ bool checkStdin() {
   }
 }
 
-int getLinesCount(FILE *fp) {
+int get_lines_count(FILE *fp) {
   int totalLines = 0;
 
   if (fp == NULL) {
     DEBUG_PRINT(("%s\n", "fp was NULL"));
-    fail("Error while opening the file.\n");
+    fail("Error while opening the file.");
   }
 
   int chr = getc(fp);
@@ -108,7 +157,7 @@ int getLinesCount(FILE *fp) {
   return totalLines;
 }
 
-int getIntCharLen(int input) {
+int get_int_char_len(int input) {
   int len = 1, test10sPlace = 10, negative = 0;
   if (input < 0) {
     negative = 1;
@@ -127,7 +176,7 @@ int getIntCharLen(int input) {
   return len + negative;
 }
 
-char *nstpcpy(char *buff, char *strings[], int len) {
+void nstpcpy(char *buff, char *strings[], int len) {
   for (int i = 0; i < len; i++) {
     buff = stpcpy(buff, strings[i]);
   }

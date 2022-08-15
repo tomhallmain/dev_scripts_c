@@ -1,3 +1,4 @@
+#include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -6,13 +7,15 @@
 
 #define BUF_SIZE 1024
 
-//#define DEBUG 0 // comment out to stop debug
+// #define DEBUG 0 // comment out to stop debug
 #ifdef DEBUG
 #define DEBUG_PRINT(x) printf x
+#define IS_DEBUG true
 #else
 #define DEBUG_PRINT(x)                                                         \
   do {                                                                         \
   } while (0)
+#define IS_DEBUG false
 #endif
 
 struct data_file {
@@ -31,6 +34,7 @@ typedef struct data_file data_file;
 #define PROGRAM_REORDER "reorder"
 #define PROGRAM_FIT "fit"
 
+#define DS_SEP "@@@"
 #define SPACE " "
 #define TAB "\t"
 #define PIPE "|"
@@ -44,18 +48,23 @@ typedef struct data_file data_file;
 #define DOUBLEQUOT "\""
 
 #define fail(msg)                                                              \
-  fprintf(stderr, msg);                                                        \
+  fprintf(stderr, "%s\n", msg);                                                \
   exit(EXIT_FAILURE);
 
-char *intToChar(int x);
-int rematch(char *pattern, char *testString);
-bool checkStdin(void);
-int stdincpy(void);
-int getLinesCount(FILE *fp);
-int getIntCharLen(int input);
-char *nstpcpy(char *buff, char *strings[], int len);
+#define unreachable(reason)                                                    \
+  DEBUG_PRINT(("%s\n", "Hit unreachable statement"));                          \
+  fail(reason);
 
-int runIndex(int argc, char **argv, data_file *file);
-int inferFieldSeparator(int argc, char **argv, data_file *file);
+char *int_to_char(int x);
+regex_t get_compiled_regex(char *pattern, bool reuse);
+int rematch(char *pattern, char *test_string, bool reuse);
+bool check_stdin(void);
+int stdincpy(void);
+int get_lines_count(FILE *fp);
+int get_int_char_len(int input);
+void nstpcpy(char *buff, char *strings[], int len);
+
+int run_index(int argc, char **argv, data_file *file);
+int infer_field_separator(int argc, char **argv, data_file *file);
 
 #endif /* DSC_H */
