@@ -5,13 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 // Print data with an index.
 int run_index(int argc, char **argv, data_file *file) {
-  FILE *fp;
-
   DEBUG_PRINT(("%s\n", "Running index"));
+  FILE *fp;
 
   if (file->fd > 2) {
     fp = fopen(file->filename, "r");

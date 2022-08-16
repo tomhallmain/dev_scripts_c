@@ -7,7 +7,7 @@
 
 #define BUF_SIZE 1024
 
-// #define DEBUG 0 // comment out to stop debug
+#define DEBUG 0 // comment out to stop debug
 #ifdef DEBUG
 #define DEBUG_PRINT(x) printf x
 #define IS_DEBUG true
@@ -35,6 +35,7 @@ typedef struct data_file data_file;
 #define PROGRAM_RANDOM "random"
 #define PROGRAM_REORDER "reorder"
 #define PROGRAM_FIT "fit"
+#define PROGRAM_TRANSPOSE "transpose"
 
 #define DS_SEP "@@@"
 #define SPACE " "
@@ -57,6 +58,8 @@ typedef struct data_file data_file;
   DEBUG_PRINT(("%s\n", "Hit unreachable statement"));                          \
   fail(reason);
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 char *int_to_char(int x);
 char *substr(const char *src, int m, int n);
 regex_t get_compiled_regex(char *pattern, bool reuse);
@@ -70,5 +73,8 @@ void nstpcpy(char *buff, char *strings[], int len);
 int run_index(int argc, char **argv, data_file *file);
 int infer_field_separator(int argc, char **argv, data_file *file);
 int get_random(int argc, char **argv, data_file *file);
+int transpose(int argc, char **argv, data_file *file);
+int fit(int argc, char **argv, data_file *file);
+int reorder(int argc, char **argv, data_file *file);
 
 #endif /* DSC_H */

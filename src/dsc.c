@@ -7,6 +7,35 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+struct program {
+  const char *name;
+  int (*main_func)(int, char **, data_file *);
+  int (*fsFunc)(int, char **, data_file *);
+  bool use_file;
+  bool is_inferfs;
+  bool run_inferfs;
+  int expected_filename_index;
+};
+struct program programs[] = {
+    {"index", run_index, infer_field_separator, true, false, true, 2},
+    {"inferfs", NULL, infer_field_separator, true, true, true, 2},
+    {"random", get_random, NULL, true, false, false, 3},
+    {"reorder", reorder, infer_field_separator, true, false, true, 2},
+    {"fit", fit, infer_field_separator, true, false, true, 2},
+    {"transpose", transpose, infer_field_separator, true, false, true, 2}};
+
+static struct program *get_step_program(char **argv) {
+  char program_str[25];
+  strcpy(program_str, argv[1]);
+  int i;
+  for (i = 0; i < ARRAY_SIZE(programs); i++) {
+    if (strcmp(program_str, programs[i].name) == 0) {
+      return &programs[i];
+    }
+  }
+  FAIL("Invalid method provided.");
+}
+
 // Entry point and router for the various programs.
 int main(int argc, char **argv) {
   DEBUG_PRINT(("%s\n", "starting main method"));
@@ -15,30 +44,11 @@ int main(int argc, char **argv) {
     FAIL("No routine provided.");
   }
 
-  int (*main_func)(int, char **, data_file *);
-  int (*fsFunc)(int, char **, data_file *) = infer_field_separator;
-  char program[25];
-  strcpy(program, argv[1]);
   int args_base_offset = 2;
-  bool use_file = true; // If not using filename, set to false below
-  bool run_inferfs = true;
   bool is_piped = !isatty(STDIN_FILENO);
-  int expected_filename_index = 2;
-  int is_inferfs = 0;
 
-  if (strcmp(program, PROGRAM_INDEX) == 0) {
-    main_func = run_index;
-  } else if (strcmp(program, PROGRAM_IFS) == 0) {
-    main_func = NULL;
-    is_inferfs = 1;
-  } else if (strcmp(program, PROGRAM_RANDOM) == 0) {
-    main_func = get_random;
-    run_inferfs = false;
-    expected_filename_index = 3;
-    use_file = is_piped || argc > 3;
-  } else {
-    FAIL("Invalid method provided.");
-  }
+  struct program *program_to_run = get_step_program(argv);
+  int expected_filename_index = program_to_run->expected_filename_index;
 
   struct data_file file;
   file.fd = -1;
@@ -46,7 +56,7 @@ int main(int argc, char **argv) {
 
   // Get filename if provided and valid - otherwise use stdin and remove arg if
   // necessary.
-  if (use_file) {
+  if (program_to_run->use_file) {
     if (is_piped || argc < expected_filename_index + 1) {
       file.fd = 0;
       file.is_piped = true;
@@ -91,10 +101,11 @@ int main(int argc, char **argv) {
 
   new_argv[argc - args_offset] = NULL;
 
-  if (fsFunc && use_file && run_inferfs) {
-    fsFunc(new_argc, new_argv, &file);
+  if (program_to_run->fsFunc && program_to_run->use_file &&
+      program_to_run->run_inferfs) {
+    program_to_run->fsFunc(new_argc, new_argv, &file);
 
-    if (is_inferfs) {
+    if (program_to_run->is_inferfs) {
       printf("%s", file.fs);
       return 0;
     }
@@ -113,7 +124,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  int result = main_func(new_argc, new_argv, &file);
+  int result = program_to_run->main_func(new_argc, new_argv, &file);
 
   /*
   // free memory
