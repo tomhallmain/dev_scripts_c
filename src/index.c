@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// Print data with an index.
 int run_index(int argc, char **argv, data_file *file) {
   FILE *fp;
 
@@ -14,9 +15,11 @@ int run_index(int argc, char **argv, data_file *file) {
 
   if (file->fd > 2) {
     fp = fopen(file->filename, "r");
-  } else {
+  } else if (file->is_piped) {
     file->fd = stdincpy();
     fp = fdopen(file->fd, "r");
+  } else {
+    FAIL("No filename provided.");
   }
 
   char fs[6];

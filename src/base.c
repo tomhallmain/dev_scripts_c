@@ -8,11 +8,13 @@
 
 static hashmap *regex_map = NULL;
 
+// Common utilities methods
+
 char *int_to_char(int x) {
   char *x_char;
 
   if (sprintf(x_char, "%d", x) == -1) {
-    fail("sprintf");
+    FAIL("sprintf");
   } else {
     return x_char;
   }
@@ -54,8 +56,8 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
 
       if (compile_err) {
         DEBUG_PRINT(("Failed to compile regex for pattern \"%s\" with error %d",
-                     pattern, compile));
-        fail("rematch error - could not compile regex");
+                     pattern, compile_err));
+        FAIL("rematch error - could not compile regex");
       }
 
       map_put_(regex_map, pattern, (uintptr_t)malloc(sizeof(regex)));
@@ -65,8 +67,8 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
 
     if (compile_err) {
       DEBUG_PRINT(("Failed to compile regex for pattern \"%s\" with error %d",
-                   pattern, compile));
-      fail("rematch error - could not compile regex");
+                   pattern, compile_err));
+      FAIL("rematch error - could not compile regex");
     }
   }
 
@@ -139,7 +141,7 @@ int get_lines_count(FILE *fp) {
 
   if (fp == NULL) {
     DEBUG_PRINT(("%s\n", "fp was NULL"));
-    fail("Error while opening the file.");
+    FAIL("Error while opening the file.");
   }
 
   int chr = getc(fp);

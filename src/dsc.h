@@ -20,9 +20,10 @@
 
 struct data_file {
   FILE *fp;
-  char filename[64];
+  char filename[128];
   char *fs;
   int fd;
+  bool is_piped;
 };
 
 typedef struct data_file data_file;
@@ -31,6 +32,7 @@ typedef struct data_file data_file;
 
 #define PROGRAM_INDEX "index"
 #define PROGRAM_IFS "inferfs"
+#define PROGRAM_RANDOM "random"
 #define PROGRAM_REORDER "reorder"
 #define PROGRAM_FIT "fit"
 
@@ -47,15 +49,16 @@ typedef struct data_file data_file;
 #define SINGLEQUOT "'"
 #define DOUBLEQUOT "\""
 
-#define fail(msg)                                                              \
+#define FAIL(msg)                                                              \
   fprintf(stderr, "%s\n", msg);                                                \
   exit(EXIT_FAILURE);
 
-#define unreachable(reason)                                                    \
+#define UNREACHABLE(reason)                                                    \
   DEBUG_PRINT(("%s\n", "Hit unreachable statement"));                          \
   fail(reason);
 
 char *int_to_char(int x);
+char *substr(const char *src, int m, int n);
 regex_t get_compiled_regex(char *pattern, bool reuse);
 int rematch(char *pattern, char *test_string, bool reuse);
 bool check_stdin(void);
@@ -66,5 +69,6 @@ void nstpcpy(char *buff, char *strings[], int len);
 
 int run_index(int argc, char **argv, data_file *file);
 int infer_field_separator(int argc, char **argv, data_file *file);
+int get_random(int argc, char **argv, data_file *file);
 
 #endif /* DSC_H */

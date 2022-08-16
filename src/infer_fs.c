@@ -123,27 +123,31 @@ static int count_matches_for_line(const char *sep, char *line, size_t len,
         break;
       } else {
         printf("%d\n", err);
-        fail("Regex match failed.");
+        FAIL("Regex match FAILed.");
       }
     }
+
+    count--;
   }
 
   return count;
 }
 
-/* main method */
+// Infer a field separator from data.
 int infer_field_separator(int argc, char **argv, data_file *file) {
-  const char *filename = file->filename;
+  if (!file->is_piped) {
+    const char *filename = file->filename;
 
-  if (endswith(filename, CSV_SUFFIX)) {
-    file->fs = ",";
-    return 0;
-  } else if (endswith(filename, TSV_SUFFIX)) {
-    file->fs = "\t";
-    return 0;
-  } else if (endswith(filename, PROPERTIES_SUFFIX)) {
-    file->fs = "=";
-    return 0;
+    if (endswith(filename, CSV_SUFFIX)) {
+      file->fs = ",";
+      return 0;
+    } else if (endswith(filename, TSV_SUFFIX)) {
+      file->fs = "\t";
+      return 0;
+    } else if (endswith(filename, PROPERTIES_SUFFIX)) {
+      file->fs = "=";
+      return 0;
+    }
   }
 
   set_static_maps();
@@ -151,9 +155,11 @@ int infer_field_separator(int argc, char **argv, data_file *file) {
   FILE *fp;
   if (file->fd > 2) {
     fp = fopen(file->filename, "r");
-  } else {
+  } else if (file->is_piped) {
     file->fd = stdincpy();
     fp = fdopen(file->fd, "r");
+  } else {
+    FAIL("No filename provided.");
   }
 
   int n_valid_rows = 0;
