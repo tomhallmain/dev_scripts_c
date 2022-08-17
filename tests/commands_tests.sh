@@ -26,13 +26,13 @@ jnr4="tests/data/jn_repeats4"
 jnrjn1="tests/data/jn_repeats_jnd1"
 jnrjn2="tests/data/jn_repeats_jnd2"
 seps_base="tests/data/seps_test_base"
-seps_sorted="tests/data/seps_test_sorted" 
+seps_sorted="tests/data/seps_test_sorted"
 simple_csv="tests/data/company_funding_data.csv"
 simple_csv2="tests/data/testcrimedata.csv"
 complex_csv1="tests/data/addresses.csv"
 complex_csv3="tests/data/addresses_reordered"
 complex_csv2="tests/data/Sample100.csv"
-complex_csv4="tests/data/quoted_fields_with_newline.csv" 
+complex_csv4="tests/data/quoted_fields_with_newline.csv"
 complex_csv5="tests/data/taxables.csv"
 complex_csv6="tests/data/quoted_multiline_fields.csv"
 complex_csv6_prefield="tests/data/quoted_multiline_fields_prefield"
@@ -48,54 +48,59 @@ number_comma_format="tests/data/number_comma_format"
 if [[ $shell =~ 'bash' ]]; then
     bsh=0
     cd "${BASH_SOURCE%/*}/.."
-    source commands.sh
-    $(ds:fail 'testfail' &> $tmp)
-    testfail=$(cat $tmp)
-    [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
     cd "$(dirname $0)/.."
-    source commands.sh
-    $(ds:fail 'testfail' &> $tmp)
-    testfail=$(cat $tmp)
-    [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
 else
     echo 'unhandled shell detected - only zsh/bash supported at this time'
     exit 1
 fi
 
+ds:fail() {
+  echo "$1" && exit 1
+}
+
+make -f makefile
+
 # BASICS TESTS
 
-echo -n "Running basic commands tests..."
+# echo -n "Running basic commands tests..."
+#
+# [[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]]    || ds:fail 'sh command failed'
+#
+# ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
+# ds:commands "" "" 0 > $q
+# cmp --silent $cmds $test_cmds && grep -q "$ch" $cmds || ds:fail 'commands listing failed'
+#
+# ds:file_check "$png" f t &> /dev/null                || ds:fail 'file check disallowed binary files in allowed case'
+#
+#
+# echo -e "${GREEN}PASS${NC}"
 
-[[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]]    || ds:fail 'sh command failed'
+# ASSORTED COMMANDS TESTS
 
-ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
-ds:commands "" "" 0 > $q
-cmp --silent $cmds $test_cmds && grep -q "$ch" $cmds || ds:fail 'commands listing failed'
+echo -n "Running assorted commands tests..."
 
-ds:file_check "$png" f t &> /dev/null                || ds:fail 'file check disallowed binary files in allowed case'
+actual="$(echo -e "5\n2\n4\n3\n1" | build/ds index)"
+expected='1 5
+2 2
+3 4
+4 3
+5 1'
+[ "$actual" = "$expected" ] || ds:fail 'index failed'
 
-output="COMMAND@@@DESCRIPTION@@@USAGE@@@
-ds:help@@@Print help for a given command@@@ds:help ds_command@@@"
-[ "$(ds:help 'ds:help')" = "$output" ]               || ds:fail 'help command failed'
-ds:nset 'ds:nset' 1> $q                              || ds:fail 'nset command failed'
-ds:searchn 'ds:searchn' 1> $q                        || ds:fail 'searchn failed on func search'
-ds:searchn 'test_var' 1> $q                          || ds:fail 'searchn failed on var search'
-[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ]                || ds:fail 'ntype command failed'
+expected="abceett were ere"
+actual1="$(echo -e "$expected" | build/ds random | awk '{print length($0)}')"
+actual2="$(echo -e "$expected" | build/ds random tex | awk '{print length($0)}')"
+expected="$(echo -e "$expected" | awk '{print length($0)}')"
+[ "$actual1" = "$expected" ] || ds:fail 'random text failed noarg'
+[ "$actual2" = "$expected" ] || ds:fail 'random text failed witharg'
 
-# zsh trace output in subshell lists a file descriptor
-if [[ $shell =~ 'zsh' ]]; then
-    ds:trace 'echo test' &>$tmp
-    grep -e "+ds:trace:8> eval 'echo test'" -e "+(eval):1> echo test" $tmp &>$q || ds:fail 'trace command failed'
-elif [[ $shell =~ 'bash' ]]; then
-    expected="++++ echo test\ntest"
-    [ "$(ds:trace 'echo test' 2>$q)" = "$(echo -e "$expected")" ] || ds:fail 'trace command failed'
-fi
-
-# GIT COMMANDS TESTS
-
-[ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
-    || echo 'git recent all failed, possibly due to no git dirs in home'
+float_re='^0.[0-9]{6}$'
+actual1="$(build/ds random)"
+actual2="$(build/ds random n)"
+[[ "$actual1" =~ $float_re ]] || ds:fail 'random num failed noarg'
+[[ "$actual2" =~ $float_re ]] || ds:fail 'random num failed witharg'
+[ ! "$actual1" = "$actual2" ]      || ds:fail 'random num failed'
 
 echo -e "${GREEN}PASS${NC}"
 
@@ -103,23 +108,35 @@ echo -e "${GREEN}PASS${NC}"
 
 echo -n "Running inferfs and inferh tests..."
 
-[ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
-[ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case 1'
-[ "$(ds:inferfs $jnf3)" = '\;\;' ]                          || ds:fail 'inferfs failed custom separator case 2'
+[ "$(build/ds inferfs $jnf1)" = ',' ]       || ds:fail 'inferfs failed extension case'
+[ "$(cat $jnf1 | build/ds inferfs)" = ',' ] || ds:fail 'inferfs failed extension case'
+echo -e "${GREEN}PASS${NC}"
+
+exit
+
+
+
+
+
+
+
+
+
+[ "$(build/ds inferfs $seps_base)" = '\&\%\#' ]              || ds:fail 'inferfs failed custom separator case 1'
+[ "$(build/ds inferfs $jnf3)" = '\;\;' ]                     || ds:fail 'inferfs failed custom separator case 2'
 echo -e "wefkwefwl=21\nkwejf ekej=qwkdj\nTEST 349=|" > $tmp
-[ "$(ds:inferfs $tmp)" = '\=' ]                             || ds:fail 'inferfs failed custom separator case 3'
-[ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
-[ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
-[ "$(ds:inferfs $inferfs_chunks)" = ',' ]                   || ds:fail 'inferfs failed simple chunks case'
+[ "$(build/ds inferfs $tmp)" = '\=' ]                        || ds:fail 'inferfs failed custom separator case 3'
+[ "$(build/ds inferfs $ls_sq)" = '[[:space:]]+' ]            || ds:fail 'inferfs failed quoted fields case'
+[ "$(build/ds inferfs $complex_csv3)" = ',' ]                || ds:fail 'inferfs failed quoted fields case'
+[ "$(build/ds inferfs $inferfs_chunks)" = ',' ]              || ds:fail 'inferfs failed simple chunks case'
 
 # INFERH TESTS
 
-ds:inferh $seps_base 2>$q                                   && ds:fail 'inferh failed custom separator noheaders case'
-ds:inferh $ls_sq 2>$q                                       && ds:fail 'inferh failed ls noheaders case'
-ds:inferh $simple_csv 2>$q                                  || ds:fail 'inferh failed basic headers case'
-ds:inferh $complex_csv3 2>$q                                || ds:fail 'inferh failed complex headers case'
+ds:inferh $seps_base 2>$q          && ds:fail 'inferh failed custom separator noheaders case'
+ds:inferh $ls_sq 2>$q              && ds:fail 'inferh failed ls noheaders case'
+ds:inferh $simple_csv 2>$q         || ds:fail 'inferh failed basic headers case'
+ds:inferh $complex_csv3 2>$q       || ds:fail 'inferh failed complex headers case'
 
-echo -e "${GREEN}PASS${NC}"
 
 # JOIN TESTS
 
@@ -324,7 +341,7 @@ f e c b a
 e d c b a'
 [ "$(echo "$input" | ds:sortm -v k=5,1 -v order=d)" = "$output" ] || ds:fail 'sortm failed awkargs case'
 
-input="1\nJ\n98\n47\n9\n05\nj2\n9ju\n9\n9d" 
+input="1\nJ\n98\n47\n9\n05\nj2\n9ju\n9\n9d"
 output='1
 05
 9
@@ -547,9 +564,9 @@ expected='-1 nah
 -15 test'
 [ "$(echo "$input" | ds:reo "2<0, 3~test" "31!=14")" = "$expected" ] || ds:fail 'reo failed extended cases'
 
-input="$(for i in $(seq -10 20); do 
+input="$(for i in $(seq -10 20); do
       [ $i -eq -10 ] && ds:iter test 23 " " && echo && ds:iter _TeST_ 20 " " && echo
-      for j in $(seq -2 20); do 
+      for j in $(seq -2 20); do
           [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"
       done
       [ $i -ne 0 ] && echo; done)"
@@ -1858,139 +1875,12 @@ actual="$(ds:shape "$simple_csv2" 'AUTO,INDECE,PUBLI,BURGL' 6 30 -v tty_size=238
 
 echo -e "${GREEN}PASS${NC}"
 
-# ASSORTED COMMANDS TESTS
-
-echo -n "Running assorted commands tests..."
-
-[ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by failed on pipe case'
-[ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ]        || ds:fail 'join_by failed on pipe case'
-
-[ "$(ds:embrace 'test')" = '{test}' ]             || ds:fail 'embrace failed'
-
-path_el_arr=( tests/data/ infer_join_fields_test1 '.csv' )
-[ -z $bsh ] && let count=1 || let count=0
-for el in $(IFS='\t' ds:path_elements $jnf1); do
-    test_el=${path_el_arr[count]}
-    [ $el = $test_el ] || ds:fail "path_elements failed on $test_el"
-    let count+=1
-done
-
-actual="$(echo -e "5\n2\n4\n3\n1" | ds:index)"
-expected='1 5
-2 2
-3 4
-4 3
-5 1'
-[ "$actual" = "$expected" ] || ds:fail 'idx failed'
-
-[ "$(ds:filename_str $jnf1 '-1' "" t)" = 'tests/data/infer_join_fields_test1-1.csv' ] \
-  || ds:fail 'filename_str command failed'
-
-[ "$(ds:iter "a" 3)" = 'aaa' ] || ds:fail 'iter failed'
-
-[ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev failed'
-
-echo > $tmp; for i in $(seq 1 10); do echo test$i >> $tmp; done; ds:sedi $tmp 'test'
-[[ ! "$(head -n1 $tmp)" =~ "test" ]] || ds:fail 'sedi command failed'
-
-output="1;2;3;4;5;6;7;8;9;10"
-[ "$(cat $tmp | ds:mini)" = "$output" ]                                  || ds:fail 'mini failed'
-
-[ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ]        || ds:fail 'unicode command failed base case'
-[ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
-[ "$(ds:unicode "cats😼😻" hex)" = '%63%61%74%73%F09F98BC%F09F98BB' ]    || ds:fail 'unicode command failed hex case'
-
-expected='tests/commands_tests.sh:## TODO: Git tests'
-[ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$expected" ]        || ds:fail 'todo command failed'
-
-[ "$(ds:substr "TEST" "T" "ST")" = "E" ]                                 || ds:fail 'substr failed base case'
-[ "$(echo "TEST" | ds:substr "T" "ST")" = "E" ]                          || ds:fail 'substr failed pipe case'
-actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
-[ "$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")" = 4 ]           || ds:fail 'substr failed extended regex case'
-
-if [[ $shell =~ 'zsh' ]]; then
-    expected="33 !;34 \";35 #;36 $;37 %;38 &;39 ';40 (;41 );42 *;43 +;44 ,;45 -;46 .;47 /;48 0;49 1;50 2;51 3;52 4;53 5;54 6;55 7;56 8;57 9;58 :;59 ;;60 <;61 =;62 >;63 ?;64 @;65 A;66 B;67 C;68 D;69 E;70 F;71 G;72 H;73 I;74 J;75 K;76 L;77 M;78 N;79 O;80 P;81 Q;82 R;83 S;84 T;85 U;86 V;87 W;88 X;89 Y;90 Z;91 [;92 \;93 ];94 ^;95 _;96 \`;97 a;98 b;99 c;100 d;101 e;102 f;103 g;104 h;105 i;106 j;107 k;108 l;109 m;110 n;111 o;112 p;113 q;114 r;115 s;116 t;117 u;118 v;119 w;120 x;121 y;122 z;123 {;124 |;125 };126 ~;"
-    [ "$(ds:ascii 33 126 | awk '{_=_$0";"}END{print _}')" = "$expected" ]    || ds:fail 'ascii failed base case'
-    expected="200 È;201 É;202 Ê;203 Ë;204 Ì;205 Í;206 Î;207 Ï;208 Ð;209 Ñ;210 Ò;211 Ó;212 Ô;213 Õ;214 Ö;215 ×;216 Ø;217 Ù;218 Ú;219 Û;220 Ü;221 Ý;222 Þ;223 ß;224 à;225 á;226 â;227 ã;228 ä;229 å;230 æ;231 ç;232 è;233 é;234 ê;235 ë;236 ì;237 í;238 î;239 ï;240 ð;241 ñ;242 ò;243 ó;244 ô;245 õ;246 ö;247 ÷;248 ø;249 ù;250 ú;"
-    [ "$(ds:ascii 200 250 | awk '{_=_$0";"}END{print _}')" = "$expected" ]   || ds:fail 'ascii failed accent case'
-else
-    expected='support/utils.sh'
-    [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
-fi
-
-help_deps='ds:sortm
-ds:agg
-ds:diff_fields
-ds:fail
-ds:pow
-ds:fit
-ds:subsep
-ds:reo
-ds:nset
-ds:pivot
-ds:commands
-ds:shape
-ds:join'
-[[ "$(ds:deps ds:help)" = "$help_deps" ]]                                || ds:fail 'deps failed'
-[ "$(ds:websel https://www.google.com title)" = Google ]                 || ds:fail 'websel failed or internet is out'
-
-expected='Hist: field 3 (district), cardinality 6
-               1-1.5 +
-               1.5-2 +
-               2-2.5
-               2.5-3 +
-               3-3.5
-               3.5-4 +
-               4-4.5
-               4.5-5 +
-               5-5.5
-               5.5-6 +
-
-Hist: field 5 (grid), cardinality 539
-           102-257.9 ++++++++
-         257.9-413.8 ++++++
-         413.8-569.7 ++++++++++++++
-         569.7-725.6 +++++++
-         725.6-881.5 +++++++++++++++
-        881.5-1037.4 ++++++++++++++
-       1037.4-1193.3 +++++++++
-       1193.3-1349.2 +++++++++++++
-       1349.2-1505.1 ++++++++++
-         1505.1-1661 ++++++
-
-Hist: field 7 (ucr_ncic_code), cardinality 88
-          909-1628.3 +++++++++++
-       1628.3-2347.6 ++++++++++++++
-       2347.6-3066.9 ++++++++++++++
-       3066.9-3786.2 ++++++++++++++
-       3786.2-4505.5 +++++
-       4505.5-5224.8 ++++++++++++++
-       5224.8-5944.1 +++++++++++
-       5944.1-6663.4
-       6663.4-7382.7 ++
-         7382.7-8102 +++
-
-Hist: field 8 (latitude), cardinality 1905
-      38.438-38.4626 +++++++
-     38.4626-38.4872 +++++++++++++
-     38.4872-38.5117 +++++++++++++
-     38.5117-38.5363 ++++++++++++++
-     38.5363-38.5609 ++++++++++++++
-     38.5609-38.5855 ++++++++++++++
-     38.5855-38.6101 +++++++++
-     38.6101-38.6346 ++++++++++++++
-     38.6346-38.6592 +++++++++++
-     38.6592-38.6838 ++++++'
-[ "$(ds:hist "$simple_csv2" | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'hist command failed'
-
-echo -e "${GREEN}PASS${NC}"
-
 
 # INTEGRATION TESTS
 
 echo -n "Running integration tests..."
 
-# Integration Case 1 - Sum of all crimes by day of the month, only select a certain day 
+# Integration Case 1 - Sum of all crimes by day of the month, only select a certain day
 # of the week and the total where the total is greater than 300 crimes.
 
 expected='@@@PIVOT@@@7@@@14@@@21@@@28@@@+|all@@@

@@ -4,17 +4,17 @@
 #include <string.h>
 #include <time.h>
 
-#define MODE_ERR 1
 #define MODE_NUM 0
 #define MODE_TEXT 1
+#define MODE_ERR 2
 
-static void seed_random() {
+void seed_random() {
   struct timespec start;
   clock_gettime(CLOCK_MONOTONIC_RAW, &start);
   srand(start.tv_sec + start.tv_nsec);
 }
 
-static double get_random_double_one_to_zero() {
+double get_random_double_one_to_zero() {
   double rand1 = (double)rand();
   double rand2 = (double)rand();
 
@@ -51,8 +51,6 @@ int get_random(int argc, char **argv, data_file *file) {
         mode = MODE_NUM;
       } else if (rematch(mode_pattern, "text", false)) {
         mode = MODE_TEXT;
-      } else {
-        FAIL("[mode] not understood - available options: [number|text]");
       }
     }
   }
@@ -61,19 +59,11 @@ int get_random(int argc, char **argv, data_file *file) {
     seed_random();
     printf("%f", get_random_double_one_to_zero());
     return 0;
+  } else if (mode == MODE_ERR) {
+    FAIL("[mode] not understood - available options: [number|text]");
   }
 
-  FILE *fp;
-
-  if (file->fd > 2) {
-    fp = fopen(file->filename, "r");
-  } else if (file->is_piped) {
-    file->fd = stdincpy();
-    fp = fdopen(file->fd, "r");
-  } else {
-    FAIL("No filename provided.");
-  }
-
+  FILE *fp = get_readable_fp(file);
   int chars_seen = 0;
   int c;
 

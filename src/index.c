@@ -9,18 +9,8 @@
 // Print data with an index.
 int run_index(int argc, char **argv, data_file *file) {
   DEBUG_PRINT(("%s\n", "Running index"));
-  FILE *fp;
-
-  if (file->fd > 2) {
-    fp = fopen(file->filename, "r");
-  } else if (file->is_piped) {
-    file->fd = stdincpy();
-    fp = fdopen(file->fd, "r");
-  } else {
-    FAIL("No filename provided.");
-  }
-
-  char fs[6];
+  FILE *fp = get_readable_fp(file);
+  char fs[15];
   strcpy(fs, file->fs);
   bool space_fs = false;
 
@@ -37,23 +27,24 @@ int run_index(int argc, char **argv, data_file *file) {
     space_fs = true;
   }
 
-  char *printfStr;
+  char *f_str;
 
   if (space_fs) {
-    int totalLines = get_lines_count(fp);
-    int indLen = get_int_char_len(totalLines);
+    int total_lines = get_lines_count(fp);
+    DEBUG_PRINT(("Lines count: %d\n", total_lines));
+    int index_len = get_int_char_len(total_lines);
     printf("%s", "");
-    char *indSpLen = int_to_char(indLen);
+    DEBUG_PRINT(("Lines count: %d\n", total_lines));
+    char *index_len_str = int_to_char(index_len);
 
-    const char *printfStart = "%";
-    const char *printfEnd = "d%s%s\n";
-    printfStr =
-        (char *)malloc(1 + strlen(printfStart) + indLen + strlen(printfEnd));
-    strcpy(printfStr, printfStart);
-    strcat(printfStr, indSpLen);
-    strcat(printfStr, printfEnd);
+    const char *f_start = "%";
+    const char *f_end = "d%s%s\n";
+    f_str = (char *)malloc(1 + strlen(f_start) + index_len + strlen(f_end));
+    strcpy(f_str, f_start);
+    strcat(f_str, index_len_str);
+    strcat(f_str, f_end);
   } else {
-    printfStr = "%d%s%s\n";
+    f_str = "%d%s%s\n";
   }
 
   int ind = 0;
@@ -61,12 +52,12 @@ int run_index(int argc, char **argv, data_file *file) {
   while (fgets(buffer, BUF_SIZE, fp) != NULL) {
     // Remove trailing newline
     buffer[strcspn(buffer, "\n")] = 0;
-    printf(printfStr, ++ind, fs, buffer);
+    printf(f_str, ++ind, fs, buffer);
   }
 
   fclose(fp);
   if (space_fs) {
-    free(printfStr);
+    free(f_str);
   }
   return 0;
 }

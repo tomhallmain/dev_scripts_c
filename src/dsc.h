@@ -7,7 +7,9 @@
 
 #define BUF_SIZE 1024
 
-#define DEBUG 0 // comment out to stop debug
+// Debug
+
+//#define DEBUG 0 // comment out to stop debug
 #ifdef DEBUG
 #define DEBUG_PRINT(x) printf x
 #define IS_DEBUG true
@@ -18,24 +20,20 @@
 #define IS_DEBUG false
 #endif
 
-struct data_file {
+// File management
+
+typedef struct data_file {
   FILE *fp;
   char filename[128];
   char *fs;
   int fd;
   bool is_piped;
-};
-
-typedef struct data_file data_file;
-
+  int tmp_file_index;
+  bool remove_file_arg;
+} data_file;
 #define FILE_SET data_file[24]
 
-#define PROGRAM_INDEX "index"
-#define PROGRAM_IFS "inferfs"
-#define PROGRAM_RANDOM "random"
-#define PROGRAM_REORDER "reorder"
-#define PROGRAM_FIT "fit"
-#define PROGRAM_TRANSPOSE "transpose"
+// Patterns and separators
 
 #define DS_SEP "@@@"
 #define SPACE " "
@@ -50,25 +48,34 @@ typedef struct data_file data_file;
 #define SINGLEQUOT "'"
 #define DOUBLEQUOT "\""
 
+#define EMPTY_LINE_RE "^ *$"
+
+// Macros
+
 #define FAIL(msg)                                                              \
   fprintf(stderr, "%s\n", msg);                                                \
   exit(EXIT_FAILURE);
 
 #define UNREACHABLE(reason)                                                    \
-  DEBUG_PRINT(("%s\n", "Hit unreachable statement"));                          \
-  fail(reason);
+  DEBUG_PRINT(("Hit unreachable statement: %s\n", reason));                    \
+  FAIL(reason);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+// Functions from base.c (TODO maybe move to new header)
+
+FILE *get_readable_fp(data_file *file);
+int clear_temp_files(void);
+void nstpcpy(char *buff, char *strings[], int len);
 char *int_to_char(int x);
-char *substr(const char *src, int m, int n);
-regex_t get_compiled_regex(char *pattern, bool reuse);
-int rematch(char *pattern, char *test_string, bool reuse);
-bool check_stdin(void);
-int stdincpy(void);
 int get_lines_count(FILE *fp);
 int get_int_char_len(int input);
-void nstpcpy(char *buff, char *strings[], int len);
+char *substr(const char *src, int m, int n);
+int endswith(const char *str, const char *suffix);
+regex_t get_compiled_regex(char *pattern, bool reuse);
+int rematch(char *pattern, char *test_string, bool reuse);
+
+// Program functions
 
 int run_index(int argc, char **argv, data_file *file);
 int infer_field_separator(int argc, char **argv, data_file *file);
