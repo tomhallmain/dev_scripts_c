@@ -178,8 +178,13 @@ static struct bucket *find_entry(hashmap *m, void *key, size_t ksize,
 
 #else
 
-    // kind of a thicc condition;
-    // I didn't want this to span multiple if statements or functions.
+    if (entry->key == NULL) {
+      printf("map - %p Key was null for bucket at %d\n", m, index);
+    } else if (entry->ksize == ksize && entry->hash == hash &&
+               memcmp(entry->key, key, ksize) == 0) {
+      printf("map - %p Key found for bucket at %d\n", m, index);
+    }
+
     if (entry->key == NULL ||
         // compare sizes, then hashes, then key data as a last resort.
         (entry->ksize == ksize && entry->hash == hash &&
@@ -187,6 +192,7 @@ static struct bucket *find_entry(hashmap *m, void *key, size_t ksize,
       // return the entry if a match or an empty bucket is found
       return entry;
     }
+
 #endif
 
     // printf("collision\n");
@@ -199,6 +205,7 @@ void hashmap_set(hashmap *m, void *key, size_t ksize, uintptr_t val) {
     hashmap_resize(m);
 
   uint32_t hash = hash_data(key, ksize);
+  printf("map - %p set hash %ul ksize %zul\n", m, hash, ksize);
   struct bucket *entry = find_entry(m, key, ksize, hash);
   if (entry->key == NULL) {
     m->last->next = entry;
@@ -287,6 +294,7 @@ void hashmap_set_free(hashmap *m, void *key, size_t ksize, uintptr_t val,
 
 bool hashmap_get(hashmap *m, void *key, size_t ksize, uintptr_t *out_val) {
   uint32_t hash = hash_data(key, ksize);
+  printf("map - %p get hash %ul ksize %zul\n", m, hash, ksize);
   struct bucket *entry = find_entry(m, key, ksize, hash);
 
   // if there is no match, output val will just be NULL
@@ -295,7 +303,7 @@ bool hashmap_get(hashmap *m, void *key, size_t ksize, uintptr_t *out_val) {
   return entry->key != NULL;
 }
 
-bool map_get(hashmap *m, void *key, uintptr_t *out_val) {
+bool map_gets(hashmap *m, void *key, uintptr_t *out_val) {
   return hashmap_get(m, key, sizeof(key), out_val);
 }
 
@@ -371,26 +379,19 @@ void hashmap_iterate(hashmap *m, hashmap_callback c, void *user_ptr) {
   }
 }
 
-/*void bucket_dump(hashmap* m)
-{
-        for (int i = 0; i < m->capacity; i++)
-        {
-                if (m->buckets[i].key == NULL)
-                {
-                        if (m->buckets[i].value != 0)
-                        {
-                                printf("x");
-                        }
-                        else
-                        {
-                                printf("0");
-                        }
-                }
-                else
-                {
-                        printf("1");
-                }
-        }
-        printf("\n");
-        fflush(stdout);
-}*/
+void bucket_dump(hashmap *m) {
+  for (int i = 0; i < m->capacity; i++) {
+    if (m->buckets[i].key == NULL) {
+      if (m->buckets[i].value != 0) {
+        printf("%d x\n", i);
+      } else {
+        printf("%d 0\n", i);
+      }
+    } else {
+      uint32_t hash = hash_data(m->buckets[i].key, m->buckets[i].ksize);
+      printf("%d %ul -> %s\n", i, hash, (char *)m->buckets[i].value);
+    }
+  }
+  printf("\n");
+  fflush(stdout);
+}

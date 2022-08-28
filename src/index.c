@@ -11,30 +11,28 @@ int run_index(int argc, char **argv, data_file *file) {
   DEBUG_PRINT(("%s\n", "Running index"));
   FILE *fp = get_readable_fp(file);
   char fs[15];
-  strcpy(fs, file->fs);
   bool space_fs = false;
 
   // adjust field separator for special cases
-
-  if (rematch("\\[\\[:space:\\]\\]\\{2.\\}", fs, false)) {
+  if (rematch("\\[\\[:space:\\]\\]\\{2.\\}", file->fs->sep, false)) {
     strcpy(fs, "  ");
     space_fs = true;
-  } else if (rematch("\\[.+\\]", fs, false)) {
+  } else if (rematch("\\[.+\\]", file->fs->sep, false)) {
     strcpy(fs, " ");
     space_fs = true;
-  } else if (rematch("^\\ ", fs, false)) {
+  } else if (rematch("^\\ ", file->fs->sep, false)) {
     strcpy(fs, "  ");
     space_fs = true;
+  } else {
+    strcpy(fs, file->fs->sep);
   }
 
   char *f_str;
 
   if (space_fs) {
     int total_lines = get_lines_count(fp);
-    DEBUG_PRINT(("Lines count: %d\n", total_lines));
     int index_len = get_int_char_len(total_lines);
     printf("%s", "");
-    DEBUG_PRINT(("Lines count: %d\n", total_lines));
     char *index_len_str = int_to_char(index_len);
 
     const char *f_start = "%";

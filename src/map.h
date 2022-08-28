@@ -59,7 +59,7 @@ void hashmap_set_free(hashmap *map, void *key, size_t ksize, uintptr_t value,
                       hashmap_callback c, void *usr);
 
 bool hashmap_get(hashmap *map, void *key, size_t ksize, uintptr_t *out_val);
-bool map_get(hashmap *map, void *key, uintptr_t *out_val);
+bool map_gets(hashmap *map, void *key, uintptr_t *out_val);
 bool map_get_(hashmap *map, void *key, uintptr_t *out_val);
 
 #ifdef __HASHMAP_REMOVABLE
@@ -81,6 +81,6 @@ void hashmap_iterate(hashmap *map, hashmap_callback c, void *usr);
 // dumps bucket info for debugging.
 // allows you to see how many collisions you are getting.
 // `0` is an empty bucket, `1` is occupied, and `x` is removed.
-// void bucket_dump(hashmap *m);
+void bucket_dump(hashmap *m);
 
 #endif // map_h

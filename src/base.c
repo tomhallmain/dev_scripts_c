@@ -19,9 +19,9 @@ static hashmap *regex_map = NULL;
 
 static int stdincpy(data_file *file) {
   if (file->tmp_file_index > -1) {
-    UNREACHABLE("stdin should already be copied to a temporary file");
+    UNREACHABLE("base - stdin should already be copied to a temporary file");
   } else if (tmp_file_index == MAX_TEMP_FILES - 1) {
-    FAIL("Too many temporary files");
+    FAIL("base - Too many temporary files");
   }
 
   char template[21] = "/tmp/ds_stdin_XXXXXX";
@@ -33,16 +33,16 @@ static int stdincpy(data_file *file) {
   file->tmp_file_index = tmp_file_index;
   tmp_files[tmp_file_index++] = temp;
 
-  DEBUG_PRINT(("%s\n", "using stdin, copying to temporary file"));
-  DEBUG_PRINT(("%s\n", tmp_files[file->tmp_file_index].filename));
+  DEBUG_PRINT(("base - using stdin, copying to temporary file\n"));
+  DEBUG_PRINT(("base - %s\n", tmp_files[file->tmp_file_index].filename));
 
   if (feof(stdin))
-    printf("stdin reached eof\n");
+    printf("base - stdin reached eof\n");
 
   FILE *fp = fdopen(temp.fd, "w");
 
   if (fp == 0)
-    printf("something went wrong opening temp file\n");
+    printf("base - something went wrong opening temp file\n");
 
   unsigned long nbytes;
   char buffer[BUF_SIZE];
@@ -52,7 +52,7 @@ static int stdincpy(data_file *file) {
   }
 
   if (ferror(stdin))
-    printf("error reading from stdin");
+    printf("base - error reading from stdin");
 
   rewind(fp);
   return temp.fd;
@@ -69,8 +69,8 @@ FILE *get_readable_fp(data_file *file) {
   } else if (file->fd > 2) {
     return fopen(file->filename, "r");
   } else {
-    printf("Filename: %s fd: %d \n", file->filename, file->fd);
-    FAIL("Failed to get readable file pointer.");
+    printf("base - Filename: %s fd: %d \n", file->filename, file->fd);
+    FAIL("base - Failed to get readable file pointer.");
   }
 }
 
@@ -200,6 +200,8 @@ int endswith(const char *str, const char *suffix) {
   return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
 }
 
+void bucket_dump_regex() { bucket_dump(regex_map); }
+
 regex_t get_compiled_regex(char *pattern, bool reuse) {
   regex_t regex;
 
@@ -216,9 +218,10 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
       int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
 
       if (compile_err) {
-        DEBUG_PRINT(("Failed to compile regex for pattern \"%s\" with error %d",
-                     pattern, compile_err));
-        FAIL("rematch error - could not compile regex");
+        DEBUG_PRINT(
+            ("base - Failed to compile regex for pattern \"%s\" with error %d",
+             pattern, compile_err));
+        FAIL("base - rematch error - could not compile regex");
       }
 
       map_put_(regex_map, pattern, (uintptr_t)malloc(sizeof(regex)));
@@ -227,9 +230,10 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
     int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
 
     if (compile_err) {
-      DEBUG_PRINT(("Failed to compile regex for pattern \"%s\" with error %d",
-                   pattern, compile_err));
-      FAIL("rematch error - could not compile regex");
+      DEBUG_PRINT(
+          ("base - Failed to compile regex for pattern \"%s\" with error %d",
+           pattern, compile_err));
+      FAIL("base - rematch error - could not compile regex");
     }
   }
 
@@ -240,4 +244,120 @@ int rematch(char *pattern, char *test_string, bool reuse) {
   regex_t regex = get_compiled_regex(pattern, reuse);
   int result = regexec(&regex, test_string, 0, NULL, 0);
   return result ? 0 : 1;
+}
+
+// Simple character count
+int count_matches_for_line_char(const char sep_char, char *line, size_t len) {
+  int count = 1;
+
+  for (int i = 0; i < len; i++) {
+    if (line[i] == sep_char) {
+      ++count;
+    }
+  }
+
+  return count;
+}
+
+int count_matches_for_line_str(const char *sep, char *line, size_t len) {
+  int count = 0;
+  size_t sep_len = strlen(sep);
+  bool is_char = sep_len == 1;
+
+  if (is_char) {
+    return count_matches_for_line_char(sep[0], line, len);
+  } else {
+    // Fixed string count
+    for (int i = 0; i < len; i++) {
+      bool all_match = true;
+      int j;
+      for (j = 0; j < sep_len; j++) {
+        if (line[i + j] != sep[j]) {
+          all_match = false;
+        }
+      }
+      if (all_match) {
+        count++;
+        i += j - 1;
+      }
+    }
+  }
+
+  return count;
+}
+
+int count_matches_for_line_regex(const char *sep, char *line, size_t len) {
+  // Regex count
+  int count = 0;
+  int position = 0;
+  regex_t regex;
+  // TODO figure out why get_compiled_regex isn't working here
+  regcomp(&regex, sep, REG_EXTENDED);
+
+  while (position < len) {
+    regmatch_t pmatch[1];
+    int err = regexec(&regex, &line[position], 1, pmatch, 0);
+    if (!err) {
+      ++count;
+      position += (int)pmatch[0].rm_eo;
+      if (count > 500) {
+        break;
+      }
+    } else if (err == REG_NOMATCH) {
+      break;
+    } else {
+      printf("base - %d\n", err);
+      FAIL("base - Regex match failed.");
+    }
+  }
+
+  if (count > 0)
+    count--;
+
+  return count;
+}
+
+void hex_dump(char *desc, void *addr, int len) {
+  int i;
+  unsigned char buff[17];
+  unsigned char *pc = (unsigned char *)addr;
+
+  // Output description if given.
+  if (desc != NULL)
+    printf("%s:\n", desc);
+
+  // Process every byte in the data.
+  for (i = 0; i < len; i++) {
+    // Multiple of 16 means new line (with line offset).
+
+    if ((i % 16) == 0) {
+      // Just don't print ASCII for the zeroth line.
+      if (i != 0)
+        printf("  %s\n", buff);
+
+      // Output the offset.
+      printf("  %04x ", i);
+    }
+
+    // Now the hex code for the specific character.
+    printf(" %02x", pc[i]);
+
+    // And store a printable ASCII character for later.
+    if ((pc[i] < 0x20) || (pc[i] > 0x7e)) {
+      buff[i % 16] = '.';
+    } else {
+      buff[i % 16] = pc[i];
+    }
+
+    buff[(i % 16) + 1] = '\0';
+  }
+
+  // Pad out last line if not exactly 16 characters.
+  while ((i % 16) != 0) {
+    printf("   ");
+    i++;
+  }
+
+  // And print the final ASCII bit.
+  printf("  %s\n", buff);
 }

@@ -10,13 +10,13 @@
 typedef struct program {
   const char *name;
   int (*main_func)(int, char **, data_file *);
-  int (*fsFunc)(int, char **, data_file *);
+  int (*fs_func)(int, char **, data_file *);
   bool use_file;
   bool is_inferfs;
   int expected_filename_index;
   bool terminating;
 } program;
-struct program programs[] = {
+program programs[] = {
     {"index", run_index, infer_field_separator, true, false, 2},
     {"inferfs", NULL, infer_field_separator, true, true, 2},
     {"random", get_random, NULL, true, false, 3},
@@ -24,7 +24,10 @@ struct program programs[] = {
     {"fit", fit, infer_field_separator, true, false, 2},
     {"transpose", transpose, infer_field_separator, true, false, 2}};
 
-static struct program *get_step_program(char **argv) {
+static program *get_step_program(char **argv) {
+  if (strlen(argv[1]) > 24) {
+    FAIL("dsc - Invalid method provided.");
+  }
   char program_str[25];
   strcpy(program_str, argv[1]);
   int i;
@@ -33,7 +36,7 @@ static struct program *get_step_program(char **argv) {
       return &programs[i];
     }
   }
-  FAIL("Invalid method provided.");
+  FAIL("dsc - Invalid method provided.");
 }
 
 static data_file get_file(int argc, char **argv, program *program_to_run) {
@@ -70,7 +73,7 @@ static data_file get_file(int argc, char **argv, program *program_to_run) {
       } else if (file.fd == 0) {
         file.is_piped = true;
       } else {
-        FAIL("Invalid filename provided.");
+        FAIL("dsc - Invalid filename provided.");
       }
     }
   }
@@ -80,10 +83,11 @@ static data_file get_file(int argc, char **argv, program *program_to_run) {
 
 // Entry point and router for the various programs.
 int main(int argc, char **argv) {
-  DEBUG_PRINT(("%s\n", "starting main method"));
+  DEBUG_PRINT(("dsc - starting main method\n"));
+  //  transpose(argc, argv, NULL);
 
   if (argc == 1) {
-    FAIL("No routine provided.");
+    FAIL("dsc - No routine provided.");
   }
 
   int args_base_offset = 2;
@@ -108,16 +112,16 @@ int main(int argc, char **argv) {
     size_t length = strlen(argv[i + args_offset]) + 1;
     new_argv[i] = malloc(length);
     memcpy(new_argv[i], argv[i + args_offset], length);
-    DEBUG_PRINT(("copied arg from main argv: %s\n", new_argv[i]));
+    DEBUG_PRINT(("dsc - copied arg from main argv: %s\n", new_argv[i]));
   }
 
   new_argv[argc - args_offset] = NULL;
 
-  if (program_to_run->fsFunc && program_to_run->use_file) {
-    program_to_run->fsFunc(new_argc, new_argv, &file);
+  if (program_to_run->fs_func && program_to_run->use_file) {
+    program_to_run->fs_func(new_argc, new_argv, &file);
 
     if (program_to_run->is_inferfs) {
-      printf("%s", file.fs);
+      printf("%s", file.fs->sep);
       return 0;
     }
   }
@@ -139,9 +143,9 @@ int main(int argc, char **argv) {
 
   int clear_files = clear_temp_files();
   if (clear_files == 1) {
-    DEBUG_PRINT(("Cleared any temporary files.\n"));
+    DEBUG_PRINT(("dsc - Cleared any temporary files.\n"));
   } else if (clear_files == -1) {
-    DEBUG_PRINT(("Failed to clear temporary files.\n"));
+    DEBUG_PRINT(("dsc - Failed to clear temporary files.\n"));
   }
 
   /*

@@ -6,10 +6,11 @@
 #define DSC_H
 
 #define BUF_SIZE 1024
+#define MAX_NF_COUNT 128
 
 // Debug
 
-//#define DEBUG 0 // comment out to stop debug
+#define DEBUG 0 // comment out to stop debug
 #ifdef DEBUG
 #define DEBUG_PRINT(x) printf x
 #define IS_DEBUG true
@@ -22,10 +23,19 @@
 
 // File management
 
+typedef struct field_sep {
+  char key;
+  char *sep;
+  bool is_regex;
+  int total;
+  double sum_var;
+  double var;
+  int prev_nf;
+} field_sep;
+
 typedef struct data_file {
-  FILE *fp;
   char filename[128];
-  char *fs;
+  field_sep *fs;
   int fd;
   bool is_piped;
   int tmp_file_index;
@@ -57,7 +67,7 @@ typedef struct data_file {
   exit(EXIT_FAILURE);
 
 #define UNREACHABLE(reason)                                                    \
-  DEBUG_PRINT(("Hit unreachable statement: %s\n", reason));                    \
+  DEBUG_PRINT(("dsc - Hit unreachable statement: %s\n", reason));              \
   FAIL(reason);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -74,6 +84,13 @@ char *substr(const char *src, int m, int n);
 int endswith(const char *str, const char *suffix);
 regex_t get_compiled_regex(char *pattern, bool reuse);
 int rematch(char *pattern, char *test_string, bool reuse);
+int count_matches_for_line_char(const char sep_char, char *line, size_t len);
+int count_matches_for_line_str(const char *sep, char *line, size_t len);
+int count_matches_for_line_regex(const char *sep, char *line, size_t len);
+
+void hex_dump(char *desc, void *addr, int len);
+
+void bucket_dump_regex();
 
 // Program functions
 

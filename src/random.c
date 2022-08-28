@@ -29,7 +29,7 @@ double get_random_double_one_to_zero() {
 // data.
 int get_random(int argc, char **argv, data_file *file) {
   int mode = MODE_ERR;
-  DEBUG_PRINT(("%s\n", "Running random"));
+  DEBUG_PRINT(("random - Running random\n"));
 
   if (argc == 0) {
     mode = file->is_piped ? MODE_TEXT : MODE_NUM;
@@ -40,7 +40,8 @@ int get_random(int argc, char **argv, data_file *file) {
     } else {
       size_t size = strlen(mode_str);
       if (size > 6) {
-        FAIL("[mode] not understood - available options: [number|text]");
+        FAIL("random - [mode] not understood - available options: "
+             "[number|text]");
       }
 
       char mode_pattern[8];
@@ -60,7 +61,7 @@ int get_random(int argc, char **argv, data_file *file) {
     printf("%f", get_random_double_one_to_zero());
     return 0;
   } else if (mode == MODE_ERR) {
-    FAIL("[mode] not understood - available options: [number|text]");
+    FAIL("random - [mode] not understood - available options: [number|text]");
   }
 
   FILE *fp = get_readable_fp(file);
