@@ -45,11 +45,13 @@ static struct re get_quoted_fields_re(field_sep fs, char *q) {
   uintptr_t quote_re;
   char qsep_key[17];
   stpcpy(stpcpy(qsep_key, q), &fs.key);
-  printf("%s\n", qsep_key);
+  if (IS_DEBUG)
+    printf("%s\n", qsep_key);
 
   if (map_get_(QuoteREs, qsep_key, &quote_re)) {
     struct re re = *(struct re *)quote_re;
-    printf("After was: %zul %s\n", quote_re, (char *)re.pattern);
+    if (IS_DEBUG)
+      printf("After was: %zul %s\n", quote_re, (char *)re.pattern);
     return re;
   }
 
@@ -75,19 +77,25 @@ static struct re get_quoted_fields_re(field_sep fs, char *q) {
   re.pattern = pattern;
   uintptr_t test = (uintptr_t)malloc(sizeof(re));
   map_put_(QuoteREs, qsep_key, test);
-  printf("%s Before was: %zul\n", re.pattern, test);
+
+  if (IS_DEBUG) {
+    printf("%s Before was: %zul\n", re.pattern, test);
+  }
+
   return re;
 }
 
 static uintptr_t get_fields_quote(char *line, field_sep fs) {
   char dqre[230];
-  printf("Getting quote RE 2\n");
+  if (IS_DEBUG)
+    printf("Getting quote RE 2\n");
   get_quoted_fields_re(fs, (char *)DOUBLEQUOT);
   if (rematch(dqre, line, true)) {
     return (uintptr_t)2;
   }
   char sqre[230];
-  printf("Getting quote RE 1\n");
+  if (IS_DEBUG)
+    printf("Getting quote RE 1\n");
   get_quoted_fields_re(fs, (char *)SINGLEQUOT);
   if (rematch(sqre, line, true)) {
     return (uintptr_t)1;
@@ -126,7 +134,8 @@ int infer_field_separator(int argc, char **argv, data_file *file) {
   int CommonFSCount[COMMON_FS_COUNT][max_rows];
   int CommonFSNFConsecCounts[COMMON_FS_COUNT][MAX_NF_COUNT];
 
-  printf("Quotes: %p QuoteREs: %p\n", &Quotes, &QuoteREs);
+  if (IS_DEBUG)
+    printf("Quotes: %p QuoteREs: %p\n", &Quotes, &QuoteREs);
 
   // Init base values for multiarrays
   for (int i = 0; i < COMMON_FS_COUNT; i++) {
@@ -170,7 +179,8 @@ int infer_field_separator(int argc, char **argv, data_file *file) {
       char *quote;
       uintptr_t n_quotes;
 
-      printf("Getting quote \"%s\"\n", fs->sep);
+      DEBUG_PRINT(("Getting quote \"%s\"\n", fs->sep));
+
       if (!map_get_(Quotes, &fs->key, &n_quotes)) {
         n_quotes = get_fields_quote(line, *fs);
         if (n_quotes) {

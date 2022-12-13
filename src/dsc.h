@@ -1,3 +1,4 @@
+#include "../lib/gnu_utils.h"
 #include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,7 +11,7 @@
 
 // Debug
 
-#define DEBUG 0 // comment out to stop debug
+//#define DEBUG 0 // comment out to stop debug
 #ifdef DEBUG
 #define DEBUG_PRINT(x) printf x
 #define IS_DEBUG true
@@ -32,6 +33,13 @@ typedef struct field_sep {
   double var;
   int prev_nf;
 } field_sep;
+
+typedef struct {
+  int start; /* start index */
+  short len; /* end index */
+  short row; /* row index of this field */
+  short col; /* column index of this field */
+} fieldref;
 
 typedef struct data_file {
   char filename[128];
@@ -91,6 +99,15 @@ int count_matches_for_line_regex(const char *sep, char *line, size_t len);
 void hex_dump(char *desc, void *addr, int len);
 
 void bucket_dump_regex();
+
+void find_fields_in_text(BLOCK text_buffer, char *fs, int is_regex,
+                         int total_line_count[1], int max_field_length[1],
+                         fieldref *fields_table[1], int number_of_fields[1]);
+void debug_fields_table(fieldref *fields_table, char *file_buffer,
+                        int total_line_count, int max_column_count,
+                        int number_of_fields);
+fieldref *get_ref_for_field(fieldref *fields_table, int number_of_fields,
+                            int row, int col);
 
 // Program functions
 

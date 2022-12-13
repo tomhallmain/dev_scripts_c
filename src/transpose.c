@@ -4,81 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct key2 {
-  int i;
-  int j;
-} key2;
-
-static map1 buf = NULL;
-
-static void set_map() { buf = map_create(); }
-
-static void get_or_save_field(int i, int j, bool set[BUF_SIZE][MAX_NF_COUNT],
-                              char *line, int start, int end) {
-  if (start < 0) {
-    if (!set[i][j]) {
-      return;
-    }
-    key2 key;
-    key.i = i;
-    key.j = j;
-    hex_dump("transpose - key\n", &key, sizeof(key));
-    char *val = (char *)map_get(buf, &key);
-    stpcpy(line, val);
-  } else {
-    key2 key;
-    key.i = i;
-    key.j = j;
-    hex_dump("transpose - key\n", &key, sizeof(key));
-    char value[4];
-    // char value[end - start + 1];
-    //  char *field_val = (char *)malloc(sizeof(char) * (end - start + 1));
-    stpcpy(value, substr(line, start, end));
-    printf("%s\n", value);
-    uintptr_t addr = (uintptr_t)malloc(sizeof(value));
-    map_set(buf, &key, addr);
-    hex_dump("transpose - value\n", &addr, sizeof(value));
-    set[key.i][key.j] = true;
-  }
-}
-
 // Transpose the field values of a text-based field-separated file.
 int transpose(int argc, char **argv, data_file *file) {
   DEBUG_PRINT(("transpose - Running transpose\n"));
   char fs[15];
   char ofs[15];
   strcpy(fs, file->fs->sep);
-
-  set_map();
-
-  // hashmap *map1 = hashmap_create();
-  //
-  //  if (1) {
-  //    struct key2 test1;
-  //    test1.i = 0;
-  //    test1.j = 0;
-  //    char aaa[4] = "aaa";
-  //    map_put(map1, &test1, (uintptr_t)&aaa);
-  //    printf("%p\n", &test1);
-  //    printf("%lu\n", (uintptr_t)&aaa);
-  //    printf("%p\n", &aaa);
-  //    printf("%s\n", (char *)(uintptr_t)&aaa);
-  //  }
-  //
-  //  if (2) {
-  //    struct key2 test2;
-  //    test2.i = 0;
-  //    test2.j = 0;
-  //    char bbb[4];
-  //    uintptr_t b_ptr;
-  //    map_get(map1, &test2, &b_ptr);
-  //    printf("%p\n", &test2);
-  //    printf("%lu\n", b_ptr);
-  //    printf("%p\n", (char *)b_ptr);
-  //    printf("%s\n", (char *)b_ptr);
-  //    bucket_dump(map1);
-  //    exit(0);
-  //  }
 
   // adjust field separator for special cases
   if (rematch("\\[\\[:space:\\]\\]\\{2.\\}", fs, false)) {
@@ -98,92 +29,118 @@ int transpose(int argc, char **argv, data_file *file) {
     FAIL("transpose - Data contains too many lines");
   }
 
-  bool set[BUF_SIZE][MAX_NF_COUNT];
-  char line[BUF_SIZE];
-  int n_valid_rows = 0;
-  int line_counter = 0;
-  int max_nf = 0;
-  bool is_regex = file->fs->is_regex;
-  regex_t regex;
-  if (is_regex) {
-    regex = get_compiled_regex(file->fs->sep, false);
-  }
+  /* Read the entire file into a buffer */
+  fseek(fp, 0, SEEK_END);
+  long file_size = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  char *file_buffer = malloc(file_size + 1);
+  fread(file_buffer, file_size, 1, fp);
+  file_buffer[file_size] = '\0';
 
-  for (int i = 0; i < BUF_SIZE; i++) {
-    for (int j = 0; j < MAX_NF_COUNT; j++) {
-      set[i][j] = false;
+  /* Create a BLOCK object to hold the file contents */
+  BLOCK text_buffer;
+  text_buffer.start = file_buffer;
+  text_buffer.end = file_buffer + file_size;
+
+  /* Initialize variables to store the results of find_fields_in_text */
+  int total_line_count = 0;
+  int maximum_word_length = 0;
+  fieldref *fields_table = NULL;
+  int number_of_fields = 0;
+
+  /* Find all fields in the text */
+  find_fields_in_text(text_buffer, fs, file->fs->is_regex, &total_line_count,
+                      &maximum_word_length, &fields_table, &number_of_fields);
+
+  /* Transpose the fields and rows of the CSV file */
+  int max_field_len = 0;
+  int max_column_count = 0;
+
+  for (int i = 0; i < number_of_fields; i++) {
+    fieldref ref = fields_table[i];
+
+    if (IS_DEBUG) {
+      printf("Ref %d: %d %d %d %d\n", i, ref.start, ref.len, ref.row, ref.col);
+    }
+
+    if (ref.len > max_field_len) {
+      max_field_len = ref.len;
+    }
+
+    if (ref.col >= max_column_count) {
+      max_column_count = ref.col + 1;
     }
   }
 
-  while (fgets(line, BUF_SIZE, fp) != NULL) {
-    // Remove trailing newline
-    line[strcspn(line, "\n")] = 0;
-    ++line_counter;
+  if (IS_DEBUG) {
+    debug_fields_table(fields_table, file_buffer, total_line_count,
+                       max_column_count, number_of_fields);
+  }
 
-    if (rematch(EMPTY_LINE_RE, line, true)) {
-      continue;
-    }
+  int total_len = 0;
+  int fs_size = 1;
 
-    size_t len = strlen(line);
-    int nf = 0;
+  for (int i = 0; i < max_column_count; i++) {
+    for (int j = 0; j < total_line_count; j++) {
+      fieldref *ref = get_ref_for_field(fields_table, number_of_fields, i, j);
 
-    if (is_regex) {
-      int position = 0;
-      while (position < len) {
-        regmatch_t pmatch[1];
-        int err = regexec(&regex, &line[position], 1, pmatch, 0);
-        if (!err) {
-          int end = (int)pmatch[0].rm_so;
-          get_or_save_field(n_valid_rows, nf, set, line, position, end);
-          nf++;
-          position += (int)pmatch[0].rm_eo;
-          if (nf > MAX_NF_COUNT) {
-            break;
-          }
-        } else if (err == REG_NOMATCH) {
-          // DEBUG_PRINT(("transpose - key %p\n", &key));
-          get_or_save_field(n_valid_rows, nf, set, line, position, len);
-          DEBUG_PRINT(("transpose - Saved field \"%s\"\n", &line[position]));
-          // uintptr_t test_ptr;
-          // map_get(buf, &keys[n_valid_rows][nf], &test_ptr);
-          // printf("transpose - %d %d %p\n", keys[n_valid_rows][nf].i,
-          //        keys[n_valid_rows][nf].j, &keys[n_valid_rows][nf]);
-          // printf("transpose - get \"%s\"\n", (char *)test_ptr);
-          break;
-        } else {
-          printf("transpose - %d\n", err);
-          FAIL("transpose - Regex match failed.");
+      if (ref != NULL) {
+        if (IS_DEBUG) {
+          printf("Ref found for %d %d: %d %d %d %d\n", i, j, ref->start,
+                 ref->len, ref->row, ref->col);
         }
+        total_len += ref->len;
+      } else if (IS_DEBUG) {
+        printf("Ref for %d %d not found, maybe empty field.\n", i, j);
+      }
+
+      if (j < total_line_count - 1) {
+        total_len += fs_size;
       }
     }
 
-    if (nf > max_nf) {
-      max_nf = nf;
+    if (i < max_column_count - 1) {
+      total_len += 1;
     }
-
-    ++n_valid_rows;
   }
 
-  printf("transpose - valid rows: %d max_nf: %d\n", n_valid_rows, max_nf);
-  // bucket_dump(buf);
-  // bucket_dump_regex();
+  /* Create a buffer to hold the transposed CSV file */
+  char *transposed_buffer = malloc(total_len + 1);
+  memset(transposed_buffer, ' ', total_len + 1);
+  transposed_buffer[total_len] = '\0';
+  total_len = 0;
+  char *newline = "\n";
+  DEBUG_PRINT(("total_line_count = %d\n", total_line_count));
 
-  for (int i = 0; i < max_nf + 1; i++) {
-    for (int j = 0; j < n_valid_rows; j++) {
-      if (set[j][i]) {
-        char field[4];
-        get_or_save_field(j, i, set, field, -1, -1);
-        printf("%s", field);
+  for (int i = 0; i < max_column_count; i++) {
+    for (int j = 0; j < total_line_count; j++) {
+      fieldref *ref = get_ref_for_field(fields_table, number_of_fields, j, i);
+
+      if (ref != NULL) {
+        char *field = file_buffer + ref->start;
+        if (IS_DEBUG) {
+          printf("%d %d %d %d\n", ref->start, ref->len, ref->row, ref->col);
+          printf("%s\n", field);
+        }
+        char *transposed_field = transposed_buffer + total_len;
+        memcpy(transposed_field, field, ref->len);
+        DEBUG_PRINT(("%s\n", transposed_field));
+        total_len += ref->len;
       }
-      if (j < n_valid_rows - 1) {
-        printf("%s", ofs);
+
+      if (j < total_line_count - 1) {
+        memcpy(transposed_buffer + total_len, ofs, fs_size);
+        total_len += fs_size;
       }
     }
 
-    printf("\n");
+    if (i < max_column_count - 1) {
+      memcpy(transposed_buffer + total_len, newline, 1);
+      total_len += 1;
+    }
   }
 
-  map_destroy(buf);
-
+  /* Write the transposed data to standard output */
+  printf("%s", transposed_buffer);
   return 0;
 }

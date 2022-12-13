@@ -246,6 +246,36 @@ int rematch(char *pattern, char *test_string, bool reuse) {
   return result ? 0 : 1;
 }
 
+regmatch_t *re_search(char *pattern, const char *string, int length, int start,
+                      bool reuse) {
+  regex_t regex = get_compiled_regex(pattern, reuse);
+  regmatch_t pmatch[1];
+  char *search_array = malloc(length + 1);
+  memcpy(search_array, pattern, length);
+  int result = regexec(&regex, search_array, 0, pmatch, 0);
+  return result ? &(pmatch[0]) : NULL;
+}
+
+char *fixed_search(const char *buffer, const char *string) {
+  // Find the length of the search string
+  size_t string_length = strlen(string);
+
+  // Loop through the buffer until we find the search string or reach the end
+  const char *p = buffer;
+  while (*p != '\0') {
+    // Check if the current position in the buffer starts with the search string
+    if (strncmp(p, string, string_length) == 0) {
+      // If it does, return a pointer to the current position in the buffer
+      //      DEBUG_PRINT(("Found character: %c", *p));
+      return (char *)p;
+    }
+    p++;
+  }
+
+  // If we reach here, we did not find the search string in the buffer
+  return NULL;
+}
+
 // Simple character count
 int count_matches_for_line_char(const char sep_char, char *line, size_t len) {
   int count = 1;
@@ -360,4 +390,180 @@ void hex_dump(char *desc, void *addr, int len) {
 
   // And print the final ASCII bit.
   printf("  %s\n", buff);
+}
+
+void find_fields_in_text(BLOCK text_buffer, char *fs, int is_regex,
+                         int total_line_count[1], int max_field_length[1],
+                         fieldref *fields_table[1], int number_of_fields[1]) {
+  /* Initialize variables */
+  int line_count = 0;
+  int max_field_len = 0;
+  int field_count = 0;
+  int current_row = 0;
+  int current_col = 0;
+  int fields_table_size = 10;
+
+  /* Allocate memory for the fields table */
+  fields_table[0] = malloc(fields_table_size * sizeof(fieldref));
+
+  /* Start parsing the text */
+  char *current_position = text_buffer.start;
+  char *next_fs_start;
+  char *next_fs_end;
+  size_t fs_size = strlen(fs);
+  regmatch_t *match;
+
+  while (current_position < text_buffer.end) {
+    DEBUG_PRINT(("row count = %d\n", current_row));
+    DEBUG_PRINT(("col count = %d\n", current_col));
+    int end_line = 0;
+    char *line_end = index(current_position, '\n');
+    fieldref field;
+
+    if (is_regex) {
+      match = re_search(fs, current_position,
+                        text_buffer.end - current_position, 0, true);
+      next_fs_start = match ? current_position + match->rm_so : NULL;
+      next_fs_end = match ? current_position + match->rm_eo - 1 : NULL;
+    } else {
+      next_fs_start = fixed_search(current_position, fs);
+      next_fs_end = next_fs_start + fs_size;
+    }
+
+    field.start = current_position - text_buffer.start;
+    field.row = current_row;
+    field.col = current_col;
+
+    if (next_fs_start != NULL) {
+      DEBUG_PRINT(("next_fs_start = %d\n", next_fs_start));
+      DEBUG_PRINT(("next_fs_end = %d\n", next_fs_end));
+      DEBUG_PRINT(("line_end = %d\n", line_end));
+
+      if (line_end == NULL || next_fs_start < line_end) {
+        field.len = next_fs_start - current_position;
+        current_position = next_fs_end;
+      } else {
+        field.len = line_end - current_position;
+        end_line = 1;
+        current_position = line_end + 1;
+      }
+    } else {
+      DEBUG_PRINT(("current col %d had null next_fs_start\n", current_col));
+      if (line_end == NULL) {
+        field.len = text_buffer.end - current_position;
+        current_position = text_buffer.end;
+      } else {
+        field.len = line_end - current_position;
+        current_position = line_end + 1;
+      }
+      end_line = 1;
+    }
+
+    if (field.len > max_field_len) {
+      max_field_len = field.len;
+    }
+
+    /* Check if the fields table needs to be resized */
+    if (field_count == fields_table_size) {
+      fields_table_size *= 2;
+      fields_table[0] =
+          realloc(fields_table[0], fields_table_size * sizeof(fieldref));
+    }
+
+    /* Add the new field to the fields table */
+    fields_table[0][field_count] = field;
+    field_count++;
+
+    if (end_line) {
+      line_count++;
+      current_row++;
+      current_col = 0;
+    } else {
+      current_col++;
+    }
+  }
+
+  /* Save the results in the output variables */
+  *total_line_count = line_count;
+  *max_field_length = max_field_len;
+  *number_of_fields = field_count;
+}
+
+void debug_fields_table(fieldref *fields_table, char *file_buffer,
+                        int total_line_count, int max_column_count,
+                        int number_of_fields) {
+
+  int total_len = 0;
+  int fs_size = 1;
+
+  for (int i = 0; i < total_line_count; i++) {
+    for (int j = 0; j < max_column_count; j++) {
+      fieldref *ref = get_ref_for_field(fields_table, number_of_fields, i, j);
+
+      if (ref != NULL) {
+        //        printf("Ref found for %d %d: %d %d %d %d\n", i, j, ref->start,
+        //        ref->len, ref->row, ref->col);
+        total_len += ref->len;
+      }
+      //      else{
+      //        printf("Ref for %d %d not found, maybe empty field.\n", i , j);
+      //      }
+
+      if (j < total_line_count - 1) {
+        total_len += fs_size;
+      }
+    }
+
+    if (i < max_column_count - 1) {
+      total_len += 1;
+    }
+  }
+
+  char *buffer = malloc(total_len + 1);
+  memset(buffer, ' ', total_len + 1);
+  buffer[total_len] = '\0';
+  total_len = 0;
+  char *fs = ",";
+  char *newline = "\n";
+
+  for (int i = 0; i < total_line_count; i++) {
+    for (int j = 0; j < max_column_count; j++) {
+      fieldref *ref = get_ref_for_field(fields_table, number_of_fields, i, j);
+
+      if (ref != NULL) {
+        char *field = file_buffer + ref->start;
+        //        printf("%d %d %d %d\n", ref->start, ref->len, ref->row,
+        //        ref->col); printf("%s\n", field);
+        char *transposed_field = buffer + total_len;
+        memcpy(transposed_field, field, ref->len);
+        //        printf("%s\n", transposed_field);
+        total_len += ref->len;
+      }
+
+      if (j < max_column_count - 1) {
+        memcpy(buffer + total_len, fs, fs_size);
+        total_len += 1;
+      }
+    }
+
+    if (i < total_line_count - 1) {
+      memcpy(buffer + total_len, newline, 1);
+      total_len += 1;
+    }
+  }
+
+  printf("%s", buffer);
+}
+
+fieldref *get_ref_for_field(fieldref *fields_table, int number_of_fields,
+                            int row, int col) {
+  for (int i = 0; i < number_of_fields; i++) {
+    if (fields_table[i].row == row && fields_table[i].col == col) {
+      return &fields_table[i];
+    } else if (fields_table[i].row > row) {
+      break;
+    }
+  }
+
+  return NULL;
 }
