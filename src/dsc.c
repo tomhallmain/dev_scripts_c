@@ -30,60 +30,32 @@ program programs[] = {
     {"transpose", transpose, infer_field_separator, true, false, 2}
 };
 
-static program *get_step_program(char **argv) {
-    if (strlen(argv[1]) > 24) {
-        FAIL("dsc - Invalid method provided.");
-    }
-    char program_str[25];
-    strcpy(program_str, argv[1]);
-    int i;
-    for (i = 0; i < ARRAY_SIZE(programs); i++) {
-        if (strcmp(program_str, programs[i].name) == 0) {
+static program *get_step_program(const char *name) {
+    for (int i = 0; i < ARRAY_SIZE(programs); i++) {
+        if (strcmp(name, programs[i].name) == 0) {
             return &programs[i];
         }
     }
     FAIL("dsc - Invalid method provided.");
 }
 
-static data_file get_file(int argc, char **argv, program *program_to_run) {
-    struct data_file file;
-    file.fd = -1;
-    file.tmp_file_index = -1;
-    bool is_piped = !isatty(STDIN_FILENO);
-    int remove_file_arg = 0;
-    int expected_filename_index = program_to_run->expected_filename_index;
+// Parse a command string into argc/argv format
+// Format: command[args] | command[args] | ...
+static void parse_command(const char *cmd, int *argc, char ***argv) {
+    char *cmd_copy = strdup(cmd);
+    char *token = strtok(cmd_copy, " ");
+    int count = 0;
+    char **args = NULL;
 
-    // Handle some exceptional use file cases
-    if (strcmp(program_to_run->name, "random") == 0) {
-        program_to_run->use_file = is_piped || argc > 3;
+    while (token) {
+        args = realloc(args, (count + 1) * sizeof(char *));
+        args[count++] = strdup(token);
+        token = strtok(NULL, " ");
     }
 
-    // Get filename if provided and valid - otherwise use stdin and remove arg if necessary.
-    if (program_to_run->use_file) {
-        if (is_piped || argc < expected_filename_index + 1) {
-            file.fd = 0;
-            file.is_piped = true;
-        } else if (strcmp(argv[expected_filename_index], "--") == 0) {
-            remove_file_arg = 1;
-            file.fd = 0;
-            file.is_piped = true;
-        } else {
-            file.fd = open(argv[expected_filename_index], O_RDONLY);
-
-            if (file.fd > 2) {
-                remove_file_arg = 1;
-                close(file.fd);
-                strcpy(file.filename, argv[expected_filename_index]);
-                file.is_piped = false;
-            } else if (file.fd == 0) {
-                file.is_piped = true;
-            } else {
-                FAIL("dsc - Invalid filename provided.");
-            }
-        }
-    }
-
-    return file;
+    *argc = count;
+    *argv = args;
+    free(cmd_copy);
 }
 
 // Entry point and router for the various programs.
@@ -100,56 +72,70 @@ int main(int argc, char **argv) {
         FAIL("dsc - No routine provided.");
     }
 
-    int args_base_offset = 2;
+    // Check if we're part of a pipe
+    bool is_piped_input = !isatty(STDIN_FILENO);
+    bool is_piped_output = !isatty(STDOUT_FILENO);
 
-    program *program_to_run = get_step_program(argv);
+    // Get the command to run
+    program *program_to_run = get_step_program(argv[1]);
     program_to_run->terminating = false;
-    data_file file = get_file(argc, argv, program_to_run);
 
-    // allocate memory and copy arguments
-    int args_offset = args_base_offset;
-    int new_argc = argc - 1 - file.remove_file_arg;
-    char **new_argv = malloc((new_argc) * sizeof *new_argv);
+    // Set up the data file structure
+    data_file file = {0};
+    file.fd = -1;
+    file.tmp_file_index = -1;
+    file.is_piped = is_piped_input;
 
-    for (int i = 0; i < argc - args_offset + file.remove_file_arg; ++i) {
-        if (i + args_offset == program_to_run->expected_filename_index) {
-            args_offset++; // skip the filename arg
-            if (i == argc - args_offset) {
-                break;
+    // If we have piped input, we need to handle it appropriately
+    if (is_piped_input) {
+        program_to_run->use_file = true;
+        file.fd = 0;  // Use stdin
+    } else if (program_to_run->use_file && argc > program_to_run->expected_filename_index) {
+        // Handle regular file input
+        const char *filename = argv[program_to_run->expected_filename_index];
+        if (strcmp(filename, "--") == 0) {
+            file.fd = 0;
+            file.is_piped = true;
+        } else {
+            file.fd = open(filename, O_RDONLY);
+            if (file.fd <= 0) {
+                FAIL("dsc - Invalid filename provided.");
             }
+            strcpy(file.filename, filename);
         }
-        size_t length = strlen(argv[i + args_offset]) + 1;
-        new_argv[i] = malloc(length);
-        memcpy(new_argv[i], argv[i + args_offset], length);
-        DEBUG_PRINT(("dsc - copied arg from main argv: %s\n", new_argv[i]));
     }
 
-    new_argv[argc - args_offset] = NULL;
+    // Prepare arguments for the program
+    int new_argc = argc - (program_to_run->use_file ? 3 : 2);
+    char **new_argv = malloc((new_argc + 1) * sizeof(char *));
+    
+    // Copy relevant arguments, skipping program name and command name
+    for (int i = 0; i < new_argc; i++) {
+        size_t len = strlen(argv[i + 2]) + 1;
+        new_argv[i] = malloc(len);
+        memcpy(new_argv[i], argv[i + 2], len);
+    }
+    new_argv[new_argc] = NULL;
 
+    // Run field separator inference if needed
     if (program_to_run->fs_func && program_to_run->use_file) {
         program_to_run->fs_func(new_argc, new_argv, &file);
-
         if (program_to_run->is_inferfs) {
             printf("%s", file.fs->sep);
             return 0;
         }
     }
 
-    bool dev_null_output = false;
-    bool possibly_tty = false;
-    struct stat tmp_stat;
-    if (fstat(STDOUT_FILENO, &tmp_stat) == 0) {
-        if (S_ISCHR(tmp_stat.st_mode)) {
-            struct stat null_stat;
-            if (stat("/dev/null", &null_stat) == 0 && SAME_INODE(tmp_stat, null_stat))
-                dev_null_output = true;
-            else
-                possibly_tty = true;
-        }
-    }
-
+    // Execute the program
     int result = program_to_run->main_func(new_argc, new_argv, &file);
 
+    // Clean up
+    for (int i = 0; i < new_argc; i++) {
+        free(new_argv[i]);
+    }
+    free(new_argv);
+
+    // Clean up temporary files
     int clear_files = clear_temp_files();
     if (clear_files == 1) {
         DEBUG_PRINT(("dsc - Cleared any temporary files.\n"));

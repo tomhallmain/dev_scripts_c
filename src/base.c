@@ -1,5 +1,4 @@
 #include "dsc.h"
-#include "map.h"
 #include "hashmap.h"
 #include <regex.h>
 #include <stdlib.h>
@@ -44,25 +43,45 @@ static int stdincpy(data_file *file) {
     DEBUG_PRINT(("base - using stdin, copying to temporary file\n"));
     DEBUG_PRINT(("base - %s\n", tmp_files[file->tmp_file_index].filename));
 
-    if (feof(stdin))
-        printf("base - stdin reached eof\n");
-
-    FILE *fp = fdopen(temp.fd, "w");
-
-    if (fp == 0)
-        printf("base - something went wrong opening temp file\n");
-
-    unsigned long nbytes;
-    char buffer[BUF_SIZE];
-
-    while ((nbytes = fread(buffer, 1, BUF_SIZE, stdin))) {
-        fwrite(buffer, nbytes, 1, fp);
+    // Use buffered I/O for better performance
+    FILE *out = fdopen(temp.fd, "w");
+    if (!out) {
+        FAIL("base - Failed to open temporary file for writing");
     }
 
-    if (ferror(stdin))
-        printf("base - error reading from stdin");
+    // Read stdin in chunks without consuming the entire stream
+    char buffer[BUF_SIZE];
+    size_t bytes_read;
+    int eof_reached = 0;
 
-    rewind(fp);
+    while (!eof_reached) {
+        bytes_read = fread(buffer, 1, sizeof(buffer), stdin);
+        
+        if (bytes_read > 0) {
+            if (fwrite(buffer, 1, bytes_read, out) != bytes_read) {
+                FAIL("base - Error writing to temporary file");
+            }
+        }
+
+        if (bytes_read < sizeof(buffer)) {
+            if (feof(stdin)) {
+                eof_reached = 1;
+            } else if (ferror(stdin)) {
+                FAIL("base - Error reading from stdin");
+            }
+        }
+    }
+
+    // Flush the output file but don't close it
+    if (fflush(out) != 0) {
+        FAIL("base - Error flushing temporary file");
+    }
+
+    // Seek to beginning for reading
+    if (fseek(out, 0, SEEK_SET) != 0) {
+        FAIL("base - Error seeking in temporary file");
+    }
+
     return temp.fd;
 }
 
@@ -95,31 +114,6 @@ int clear_temp_files(void) {
     }
     return result;
 }
-
-// if (checkStdin()) {
-//     fp = tmpfile();
-//     char ch;
-//     while((ch = fgetc(stdin)) != EOF) {
-//         fputc(ch, fp);
-//     }
-//     rewind(fp);
-// }
-// static bool check_stdin(void) {
-//   DEBUG_PRINT(("%s\n", "in checkStdin"));
-//   int ch = getchar();
-//   if (ch == EOF) {
-//     DEBUG_PRINT(("%s\n", "char was EOF"));
-//     if (!(feof(stdin))) {
-//       puts("stdin error"); // very rare
-//     }
-//     return false;
-//   } else {
-//     DEBUG_PRINT(("%s\n", "char was not EOF"));
-//     ungetc(ch, stdin); // put back
-//     DEBUG_PRINT(("%s\n", "char put back"));
-//     return true;
-//   }
-// }
 
 void nstpcpy(char *buff, char *strings[], int len) {
     for (int i = 0; i < len; i++) {
