@@ -11,7 +11,7 @@
 
 // Debug
 
-//#define DEBUG 0 // comment out to stop debug
+#define DEBUG 0 // comment out to stop debug
 #ifdef DEBUG
 #define DEBUG_PRINT(x) printf x
 #define IS_DEBUG true
@@ -25,29 +25,29 @@
 // File management
 
 typedef struct field_sep {
-  char key;
-  char *sep;
-  bool is_regex;
-  int total;
-  double sum_var;
-  double var;
-  int prev_nf;
+    char key;
+    char *sep;
+    bool is_regex;
+    int total;
+    double sum_var;
+    double var;
+    int prev_nf;
 } field_sep;
 
 typedef struct {
-  int start; /* start index */
-  short len; /* end index */
-  short row; /* row index of this field */
-  short col; /* column index of this field */
+    int start; /* start index */
+    short len; /* end index */
+    short row; /* row index of this field */
+    short col; /* column index of this field */
 } fieldref;
 
 typedef struct data_file {
-  char filename[128];
-  field_sep *fs;
-  int fd;
-  bool is_piped;
-  int tmp_file_index;
-  bool remove_file_arg;
+    char filename[128];
+    field_sep *fs;
+    int fd;
+    bool is_piped;
+    int tmp_file_index;
+    bool remove_file_arg;
 } data_file;
 #define FILE_SET data_file[24]
 
@@ -71,12 +71,12 @@ typedef struct data_file {
 // Macros
 
 #define FAIL(msg)                                                              \
-  fprintf(stderr, "%s\n", msg);                                                \
-  exit(EXIT_FAILURE);
+    fprintf(stderr, "%s\n", msg);                                              \
+    exit(EXIT_FAILURE);
 
 #define UNREACHABLE(reason)                                                    \
-  DEBUG_PRINT(("dsc - Hit unreachable statement: %s\n", reason));              \
-  FAIL(reason);
+    DEBUG_PRINT(("dsc - Hit unreachable statement: %s\n", reason));            \
+    FAIL(reason);
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 

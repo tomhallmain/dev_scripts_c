@@ -178,12 +178,12 @@ static struct bucket *find_entry(hashmap *m, void *key, size_t ksize,
 
 #else
 
-    if (entry->key == NULL) {
-      printf("map - %p Key was null for bucket at %d\n", m, index);
-    } else if (entry->ksize == ksize && entry->hash == hash &&
-               memcmp(entry->key, key, ksize) == 0) {
-      printf("map - %p Key found for bucket at %d\n", m, index);
-    }
+    // if (entry->key == NULL) {
+    // printf("map - %p Key was null for bucket at %d\n", m, index);
+    // } else if (entry->ksize == ksize && entry->hash == hash &&
+    //            memcmp(entry->key, key, ksize) == 0) {
+    // printf("map - %p Key found for bucket at %d\n", m, index);
+    // }
 
     if (entry->key == NULL ||
         // compare sizes, then hashes, then key data as a last resort.
@@ -205,7 +205,7 @@ void hashmap_set(hashmap *m, void *key, size_t ksize, uintptr_t val) {
     hashmap_resize(m);
 
   uint32_t hash = hash_data(key, ksize);
-  printf("map - %p set hash %ul ksize %zul\n", m, hash, ksize);
+  // printf("map - %p set hash %ul ksize %zul\n", m, hash, ksize);
   struct bucket *entry = find_entry(m, key, ksize, hash);
   if (entry->key == NULL) {
     m->last->next = entry;
@@ -294,7 +294,7 @@ void hashmap_set_free(hashmap *m, void *key, size_t ksize, uintptr_t val,
 
 bool hashmap_get(hashmap *m, void *key, size_t ksize, uintptr_t *out_val) {
   uint32_t hash = hash_data(key, ksize);
-  printf("map - %p get hash %ul ksize %zul\n", m, hash, ksize);
+  // printf("map - %p get hash %ul ksize %zul\n", m, hash, ksize);
   struct bucket *entry = find_entry(m, key, ksize, hash);
 
   // if there is no match, output val will just be NULL
