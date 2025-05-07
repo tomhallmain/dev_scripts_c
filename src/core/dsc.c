@@ -1,5 +1,6 @@
-#include "dsc.h"
-#include "same-inode.h"
+#include "../include/dsc.h"
+#include "../include/same-inode.h"
+#include "../include/posix_compat.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,8 +14,8 @@ extern void cleanup_base(void);
 
 typedef struct program {
     const char *name;
-    int (*main_func)(int, char **, data_file *);
-    int (*fs_func)(int, char **, data_file *);
+    int (*main_func)(int, char **, data_file_t *);
+    int (*fs_func)(int, char **, data_file_t *);
     bool use_file;
     bool is_inferfs;
     int expected_filename_index;
@@ -66,7 +67,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    DEBUG_PRINT(("dsc - starting main method\n"));
+    DEBUG_PRINT("dsc - starting main method");
 
     if (argc == 1) {
         FAIL("dsc - No routine provided.");
@@ -81,7 +82,7 @@ int main(int argc, char **argv) {
     program_to_run->terminating = false;
 
     // Set up the data file structure
-    data_file file = {0};
+    data_file_t file = {0};
     file.fd = -1;
     file.tmp_file_index = -1;
     file.is_piped = is_piped_input;
@@ -136,11 +137,11 @@ int main(int argc, char **argv) {
     free(new_argv);
 
     // Clean up temporary files
-    int clear_files = clear_temp_files();
+    int clear_files = dsc_clear_temp_files();
     if (clear_files == 1) {
-        DEBUG_PRINT(("dsc - Cleared any temporary files.\n"));
+        DEBUG_PRINT("dsc - Cleared any temporary files.");
     } else if (clear_files == -1) {
-        DEBUG_PRINT(("dsc - Failed to clear temporary files.\n"));
+        DEBUG_PRINT("dsc - Failed to clear temporary files.");
     }
 
     return result;

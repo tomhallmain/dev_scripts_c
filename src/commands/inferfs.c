@@ -1,9 +1,11 @@
-#include "dsc.h"
-#include "hashmap.h"
 #include <math.h>
 #include <regex.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "../include/dsc.h"
+#include "../include/hashmap.h"
+#include "../include/posix_compat.h"
 
 #define CSV_SUFFIX ".csv"
 #define TSV_SUFFIX ".tsv"
@@ -117,8 +119,12 @@ static int count_matches_for_quoted_field_line(char *re, char *line) {
     return 0;
 }
 
+static void cleanup_quotes(void* key, void* value) {
+    free(value);
+}
+
 // Infer a field separator from data.
-int infer_field_separator(int argc, char **argv, data_file *file) {
+int infer_field_separator(int argc, char **argv, data_file_t *file) {
     if (!file->is_piped) {
         if (endswith(file->filename, CSV_SUFFIX)) {
             file->fs = get_common_fs('c');
@@ -197,7 +203,7 @@ int infer_field_separator(int argc, char **argv, data_file *file) {
             void* n_quotes_ptr;
             int n_quotes = 0;
 
-            DEBUG_PRINT(("Getting quote \"%s\"\n", fs->sep));
+            DEBUG_PRINT("Getting quote \"%s\"\n", fs->sep);
 
             if (!hashmap_get_string(Quotes, &fs->key, &n_quotes_ptr)) {
                 n_quotes = get_fields_quote(line, *fs);
@@ -257,8 +263,8 @@ int infer_field_separator(int argc, char **argv, data_file *file) {
     if (max_rows > n_valid_rows)
         max_rows = n_valid_rows;
 
-    // Clean up
-    hashmap_free(Quotes, free);  // Free the stored quote counts
+    // Free the stored quote counts
+    hashmap_free(Quotes, cleanup_quotes);
 
     field_sep *NoVar[COMMON_FS_COUNT];
     int winning_s = -1;

@@ -1,10 +1,10 @@
-#include "dsc.h"
+#include "../include/dsc.h"
 #include <regex.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Transpose the field values of a text-based field-separated file.
-int transpose(int argc, char **argv, data_file *file) {
+int transpose(int argc, char **argv, data_file_t *file) {
     DEBUG_PRINT(("transpose - Running transpose\n"));
     char fs[15];
     char ofs[15];
@@ -109,7 +109,7 @@ int transpose(int argc, char **argv, data_file *file) {
     transposed_buffer[total_len] = '\0';
     total_len = 0;
     char *newline = "\n";
-    DEBUG_PRINT(("total_line_count = %d\n", total_line_count));
+    DEBUG_PRINT("total_line_count = %d\n", total_line_count);
 
     for (int i = 0; i < max_column_count; i++) {
         for (int j = 0; j < total_line_count; j++) {
@@ -123,7 +123,7 @@ int transpose(int argc, char **argv, data_file *file) {
                 }
                 char *transposed_field = transposed_buffer + total_len;
                 memcpy(transposed_field, field, ref->len);
-                DEBUG_PRINT(("%s\n", transposed_field));
+                DEBUG_PRINT("%s\n", transposed_field);
                 total_len += ref->len;
             }
 

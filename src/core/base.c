@@ -1,5 +1,6 @@
-#include "dsc.h"
-#include "hashmap.h"
+#include "../include/dsc.h"
+#include "../include/hashmap.h"
+#include "../include/posix_compat.h"
 #include <regex.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +25,7 @@ static void cleanup_regex(void* key, void* value) {
 
 // Common utilities methods
 
-static int stdincpy(data_file *file) {
+static int stdincpy(data_file_t *file) {
     if (file->tmp_file_index > -1) {
         UNREACHABLE("base - stdin should already be copied to a temporary file");
     } else if (tmp_file_index == MAX_TEMP_FILES - 1) {
@@ -40,8 +41,8 @@ static int stdincpy(data_file *file) {
     file->tmp_file_index = tmp_file_index;
     tmp_files[tmp_file_index++] = temp;
 
-    DEBUG_PRINT(("base - using stdin, copying to temporary file\n"));
-    DEBUG_PRINT(("base - %s\n", tmp_files[file->tmp_file_index].filename));
+    DEBUG_PRINT("base - using stdin, copying to temporary file");
+    DEBUG_PRINT("base - %s", tmp_files[file->tmp_file_index].filename);
 
     // Use buffered I/O for better performance
     FILE *out = fdopen(temp.fd, "w");
@@ -85,7 +86,7 @@ static int stdincpy(data_file *file) {
     return temp.fd;
 }
 
-FILE *get_readable_fp(data_file *file) {
+FILE *get_readable_fp(data_file_t *file) {
     if (file->is_piped) {
         if (file->tmp_file_index < 0) {
             int fd = stdincpy(file);
@@ -101,7 +102,7 @@ FILE *get_readable_fp(data_file *file) {
     }
 }
 
-int clear_temp_files(void) {
+int dsc_clear_temp_files(void) {
     int result = 0;
     for (int i = tmp_file_index - 1; i >= 0; i--) {
         if (remove(tmp_files[i].filename)) {
@@ -125,7 +126,7 @@ int get_lines_count(FILE *fp) {
     int totalLines = 0;
 
     if (fp == NULL) {
-        DEBUG_PRINT(("%s\n", "fp was NULL"));
+        DEBUG_PRINT("%s", "fp was NULL");
         FAIL("Error while opening the file.");
     }
 
@@ -227,8 +228,8 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
         } else {
             int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
             if (compile_err) {
-                DEBUG_PRINT(("base - Failed to compile regex for pattern \"%s\" with error %d",
-                            pattern, compile_err));
+                DEBUG_PRINT("base - Failed to compile regex for pattern \"%s\" with error %d",
+                            pattern, compile_err);
                 FAIL("base - rematch error - could not compile regex");
             }
 
@@ -249,8 +250,8 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
     } else {
         int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
         if (compile_err) {
-            DEBUG_PRINT(("base - Failed to compile regex for pattern \"%s\" with error %d",
-                        pattern, compile_err));
+            DEBUG_PRINT("base - Failed to compile regex for pattern \"%s\" with error %d",
+                        pattern, compile_err);
             FAIL("base - rematch error - could not compile regex");
         }
     }
@@ -432,8 +433,8 @@ void find_fields_in_text(BLOCK text_buffer, char *fs, int is_regex,
     regmatch_t *match;
 
     while (current_position < text_buffer.end) {
-        DEBUG_PRINT(("row count = %d\n", current_row));
-        DEBUG_PRINT(("col count = %d\n", current_col));
+        DEBUG_PRINT("row count = %d", current_row);
+        DEBUG_PRINT("col count = %d", current_col);
         int end_line = 0;
         char *line_end = index(current_position, '\n');
         fieldref field;
@@ -453,9 +454,9 @@ void find_fields_in_text(BLOCK text_buffer, char *fs, int is_regex,
         field.col = current_col;
 
         if (next_fs_start != NULL) {
-            DEBUG_PRINT(("next_fs_start = %d\n", next_fs_start));
-            DEBUG_PRINT(("next_fs_end = %d\n", next_fs_end));
-            DEBUG_PRINT(("line_end = %d\n", line_end));
+            DEBUG_PRINT("next_fs_start = %d", next_fs_start);
+            DEBUG_PRINT("next_fs_end = %d", next_fs_end);
+            DEBUG_PRINT("line_end = %d", line_end);
 
             if (line_end == NULL || next_fs_start < line_end) {
                 field.len = next_fs_start - current_position;
@@ -466,7 +467,7 @@ void find_fields_in_text(BLOCK text_buffer, char *fs, int is_regex,
                 current_position = line_end + 1;
             }
         } else {
-            DEBUG_PRINT(("current col %d had null next_fs_start\n", current_col));
+            DEBUG_PRINT("current col %d had null next_fs_start", current_col);
             if (line_end == NULL) {
                 field.len = text_buffer.end - current_position;
                 current_position = text_buffer.end;

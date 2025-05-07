@@ -1,17 +1,51 @@
-#include "dsc.h"
+#include "../include/dsc.h"
+#include "posix_compat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <wincrypt.h>
+#endif
 
 #define MODE_NUM 0
 #define MODE_TEXT 1
 #define MODE_ERR 2
 
 void seed_random() {
-    struct timespec start;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-    srand(start.tv_sec + start.tv_nsec);
+    unsigned int seed;
+    
+    #ifdef _WIN32
+    HCRYPTPROV hCryptProv;
+    if (CryptAcquireContext(&hCryptProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        if (CryptGenRandom(hCryptProv, sizeof(seed), (BYTE*)&seed)) {
+            CryptReleaseContext(hCryptProv, 0);
+            srand(seed);
+            return;
+        }
+        CryptReleaseContext(hCryptProv, 0);
+    }
+    // Fallback to GetTickCount if crypto API fails
+    seed = (unsigned int)GetTickCount();
+    #else
+    // Try /dev/urandom first
+    FILE *urandom = fopen("/dev/urandom", "rb");
+    if (urandom) {
+        if (fread(&seed, sizeof(seed), 1, urandom) == 1) {
+            fclose(urandom);
+            srand(seed);
+            return;
+        }
+        fclose(urandom);
+    }
+    // Fallback to time if urandom fails
+    seed = (unsigned int)time(NULL);
+    #endif
+    
+    srand(seed);
 }
 
 double get_random_double_one_to_zero() {
@@ -27,9 +61,9 @@ double get_random_double_one_to_zero() {
 
 // Get a random number or do soft text anonymization for generating random text
 // data.
-int get_random(int argc, char **argv, data_file *file) {
+int get_random(int argc, char **argv, data_file_t *file) {
     int mode = MODE_ERR;
-    DEBUG_PRINT(("random - Running random\n"));
+    DEBUG_PRINT("random - Running random");
 
     if (argc == 0) {
         mode = file->is_piped ? MODE_TEXT : MODE_NUM;

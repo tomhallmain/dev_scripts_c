@@ -1,4 +1,4 @@
-#include "dsc.h"
+#include "../include/dsc.h"
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -7,8 +7,8 @@
 #include <sys/types.h>
 
 // Print data with an index.
-int run_index(int argc, char **argv, data_file *file) {
-    DEBUG_PRINT(("%s\n", "Running index"));
+int run_index(int argc, char **argv, data_file_t *file) {
+    DEBUG_PRINT("%s", "Running index");
     FILE *fp = get_readable_fp(file);
     char fs[15];
     bool space_fs = false;

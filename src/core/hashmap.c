@@ -1,6 +1,7 @@
-#include "hashmap.h"
+#include "../include/hashmap.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 // Initial size must be a power of 2
 #define HASHMAP_INITIAL_SIZE 16
