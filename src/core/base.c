@@ -211,9 +211,7 @@ void bucket_dump_regex() {
     }
 }
 
-regex_t get_compiled_regex(char *pattern, bool reuse) {
-    regex_t regex;
-
+regex_t* get_compiled_regex(char *pattern, bool reuse) {
     if (reuse) {
         if (!regex_map) {
             regex_map = hashmap_create(16);
@@ -224,54 +222,62 @@ regex_t get_compiled_regex(char *pattern, bool reuse) {
 
         void* cached_regex;
         if (hashmap_get_string(regex_map, pattern, &cached_regex)) {
-            return *(regex_t*)cached_regex;
-        } else {
-            int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
-            if (compile_err) {
-                DEBUG_PRINT("base - Failed to compile regex for pattern \"%s\" with error %d",
-                            pattern, compile_err);
-                FAIL("base - rematch error - could not compile regex");
-            }
-
-            // Store the compiled regex
-            regex_t* stored_regex = malloc(sizeof(regex_t));
-            if (!stored_regex) {
-                regfree(&regex);
-                FAIL("base - Failed to allocate memory for regex");
-            }
-            *stored_regex = regex;
-
-            if (!hashmap_put_string(regex_map, pattern, stored_regex)) {
-                regfree(&regex);
-                free(stored_regex);
-                FAIL("base - Failed to store regex in cache");
-            }
+            return (regex_t*)cached_regex;
         }
-    } else {
-        int compile_err = regcomp(&regex, pattern, REG_EXTENDED);
+
+        // Create new regex_t
+        regex_t* stored_regex = malloc(sizeof(regex_t));
+        if (!stored_regex) {
+            FAIL("base - Failed to allocate memory for regex");
+        }
+
+        int compile_err = regcomp(stored_regex, pattern, REG_EXTENDED);
         if (compile_err) {
+            free(stored_regex);
             DEBUG_PRINT("base - Failed to compile regex for pattern \"%s\" with error %d",
                         pattern, compile_err);
             FAIL("base - rematch error - could not compile regex");
         }
-    }
 
-    return regex;
+        if (!hashmap_put_string(regex_map, pattern, stored_regex)) {
+            regfree(stored_regex);
+            free(stored_regex);
+            FAIL("base - Failed to store regex in cache");
+        }
+
+        return stored_regex;
+    } else {
+        // Non-reuse case: create a new regex_t each time
+        regex_t* regex = malloc(sizeof(regex_t));
+        if (!regex) {
+            FAIL("base - Failed to allocate memory for regex");
+        }
+
+        int compile_err = regcomp(regex, pattern, REG_EXTENDED);
+        if (compile_err) {
+            free(regex);
+            DEBUG_PRINT("base - Failed to compile regex for pattern \"%s\" with error %d",
+                        pattern, compile_err);
+            FAIL("base - rematch error - could not compile regex");
+        }
+
+        return regex;
+    }
 }
 
 int rematch(char *pattern, char *test_string, bool reuse) {
-    regex_t regex = get_compiled_regex(pattern, reuse);
-    int result = regexec(&regex, test_string, 0, NULL, 0);
+    regex_t *regex = get_compiled_regex(pattern, reuse);
+    int result = regexec(regex, test_string, 0, NULL, 0);
     return result ? 0 : 1;
 }
 
 regmatch_t *re_search(char *pattern, const char *string, int length, int start,
                       bool reuse) {
-    regex_t regex = get_compiled_regex(pattern, reuse);
+    regex_t *regex = get_compiled_regex(pattern, reuse);
     regmatch_t pmatch[1];
     char *search_array = malloc(length + 1);
     memcpy(search_array, pattern, length);
-    int result = regexec(&regex, search_array, 0, pmatch, 0);
+    int result = regexec(regex, search_array, 0, pmatch, 0);
     return result ? &(pmatch[0]) : NULL;
 }
 
@@ -341,27 +347,35 @@ int count_matches_for_line_regex(const char *sep, char *line, size_t len) {
     int position = 0;
     regex_t regex;
     // TODO figure out why get_compiled_regex isn't working here
+    DEBUG_PRINT("Compiling regex pattern: '%s'", sep);
     regcomp(&regex, sep, REG_EXTENDED);
 
+    DEBUG_PRINT("Testing line: '%s'", line);
     while (position < len) {
         regmatch_t pmatch[1];
         int err = regexec(&regex, &line[position], 1, pmatch, 0);
         if (!err) {
             ++count;
+            DEBUG_PRINT("Match found at position %d, length %d", position, (int)pmatch[0].rm_eo);
             position += (int)pmatch[0].rm_eo;
             if (count > 500) {
+                DEBUG_PRINT("Reached maximum match count (500)");
                 break;
             }
         } else if (err == REG_NOMATCH) {
+            DEBUG_PRINT("No more matches found at position %d", position);
             break;
         } else {
-            printf("base - %d\n", err);
+            DEBUG_PRINT("Regex error: %d", err);
             FAIL("base - Regex match failed.");
         }
     }
 
-    if (count > 0)
+    if (count > 0) {
+        DEBUG_PRINT("Final count before adjustment: %d", count);
         count--;
+        DEBUG_PRINT("Final count after adjustment: %d", count);
+    }
 
     return count;
 }

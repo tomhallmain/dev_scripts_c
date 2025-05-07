@@ -32,7 +32,7 @@ if "%BUILD_TYPE%"=="release" (
     set CFLAGS=/O2 /DNDEBUG
     echo Building in RELEASE mode...
 ) else (
-    set CFLAGS=/Zi /Od /D_DEBUG /RTC1 /MDd
+    set CFLAGS=/Zi /Od /UNDEBUG /D_DEBUG /RTC1 /MDd
     echo Building in DEBUG mode...
 )
 

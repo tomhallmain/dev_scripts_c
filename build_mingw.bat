@@ -31,7 +31,7 @@ if "%BUILD_TYPE%"=="release" (
     set CFLAGS=-O2 -DNDEBUG
     echo Building in RELEASE mode...
 ) else (
-    set CFLAGS=-g -DDEBUG=1
+    set CFLAGS=-g -U_NDEBUG
     echo Building in DEBUG mode...
 )
 

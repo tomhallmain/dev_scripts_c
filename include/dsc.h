@@ -135,7 +135,7 @@ int get_lines_count(FILE *fp);
 int get_int_char_len(int input);
 char *substr(const char *src, int m, int n);
 int endswith(const char *str, const char *suffix);
-regex_t get_compiled_regex(char *pattern, bool reuse);
+regex_t* get_compiled_regex(char *pattern, bool reuse);
 int rematch(char *pattern, char *test_string, bool reuse);
 int count_matches_for_line_char(const char sep_char, char *line, size_t len);
 int count_matches_for_line_str(const char *sep, char *line, size_t len);

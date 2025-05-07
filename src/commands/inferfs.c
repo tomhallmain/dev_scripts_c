@@ -12,11 +12,16 @@
 #define PROPERTIES_SUFFIX ".properties"
 
 static field_sep CommonFS[] = {
-    {'s', SPACE, false, 0, 0, 0, 0},     {'t', TAB, false, 0, 0, 0, 0},
-    {'p', PIPE, false, 0, 0, 0, 0},      {'m', SEMICOLON, false, 0, 0, 0, 0},
-    {'o', COLON, false, 0, 0, 0, 0},     {'c', COMMA, false, 0, 0, 0, 0},
-    {'e', "=", false, 0, 0, 0, 0},       {'w', SPACEMULTI, true, 0, 0, 0, 0},
-    {'z', SPACEMULTI_, true, 0, 0, 0, 0}};
+    // {'s', SPACE, false, 0, 0, 0, 0},
+    // {'t', TAB, false, 0, 0, 0, 0},
+    // {'p', PIPE, false, 0, 0, 0, 0},
+    // {'m', SEMICOLON, false, 0, 0, 0, 0},
+    // {'o', COLON, false, 0, 0, 0, 0},     
+    {'c', COMMA, false, 0, 0, 0, 0},
+    // {'e', "=", false, 0, 0, 0, 0},       
+    {'w', SPACEMULTI, true, 0, 0, 0, 0},
+    // {'z', SPACEMULTI_, true, 0, 0, 0, 0},
+    };
 
 int COMMON_FS_COUNT = ARRAY_SIZE(CommonFS);
 static field_sep ds_sep = {'@', DS_SEP, false, 0, 0, 0, 0};
@@ -78,6 +83,8 @@ static char *get_quoted_fields_re(field_sep fs, char *q) {
     char pattern[230];
     nstpcpy(pattern, re_arr, 22);
 
+    DEBUG_PRINT("Generated pattern: '%s'", pattern);
+
     // Allocate and store the pattern
     char* stored_re = strdup(pattern);
     if (!stored_re) {
@@ -100,22 +107,28 @@ static int get_fields_quote(char *line, field_sep fs) {
     char dqre[230];
     if (IS_DEBUG)
         printf("Getting quote RE 2\n");
-    get_quoted_fields_re(fs, (char *)DOUBLEQUOT);
-    if (rematch(dqre, line, true)) {
+    char *pattern = get_quoted_fields_re(fs, (char *)DOUBLEQUOT);
+    DEBUG_PRINT("Testing double quote pattern: '%s'", pattern);
+    if (rematch(pattern, line, true)) {
+        DEBUG_PRINT("Double quote pattern matched");
         return 2;
     }
     char sqre[230];
     if (IS_DEBUG)
         printf("Getting quote RE 1\n");
-    get_quoted_fields_re(fs, (char *)SINGLEQUOT);
-    if (rematch(sqre, line, true)) {
+    pattern = get_quoted_fields_re(fs, (char *)SINGLEQUOT);
+    DEBUG_PRINT("Testing single quote pattern: '%s'", pattern);
+    if (rematch(pattern, line, true)) {
+        DEBUG_PRINT("Single quote pattern matched");
         return 1;
     }
+    DEBUG_PRINT("No quote pattern matched");
     return 0;
 }
 
-// TODO
 static int count_matches_for_quoted_field_line(char *re, char *line) {
+    DEBUG_PRINT("Testing line: '%s'", line);
+    DEBUG_PRINT("Against pattern: '%s'", re);
     return 0;
 }
 
@@ -227,10 +240,13 @@ int infer_field_separator(int argc, char **argv, data_file_t *file) {
             if (n_quotes) {
                 quote = (n_quotes == 1) ? SINGLEQUOT : DOUBLEQUOT;
                 char *re = get_quoted_fields_re(*fs, quote);
+                DEBUG_PRINT("Using quoted field counting for line: '%s'", line);
                 nf = count_matches_for_quoted_field_line(re, line);
             } else if (fs->is_regex) {
+                DEBUG_PRINT("Testing regex separator '%s' on line: '%s'", fs->sep, line);
                 nf = count_matches_for_line_regex(fs->sep, line, len);
             } else {
+                DEBUG_PRINT("Using char counting for line: '%s'", line);
                 nf = count_matches_for_line_char(fs->sep[0], line, len);
             }
 
