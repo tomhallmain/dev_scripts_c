@@ -1,5 +1,6 @@
 build/*
 ds
+*.stackdump
 *.o
 *.swp
 *.DS_Store

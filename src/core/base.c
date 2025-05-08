@@ -302,7 +302,7 @@ char *fixed_search(const char *buffer, const char *string) {
 }
 
 // Simple character count
-int count_matches_for_line_char(const char sep_char, char *line, size_t len) {
+int count_matches_for_line_char(const char sep_char, const char *line, size_t len) {
     int count = 1;
 
     for (int i = 0; i < len; i++) {
@@ -341,7 +341,7 @@ int count_matches_for_line_str(const char *sep, char *line, size_t len) {
     return count;
 }
 
-int count_matches_for_line_regex(const char *sep, char *line, size_t len) {
+int count_matches_for_line_regex(const char *sep, const char *line, size_t len) {
     // Regex count
     int count = 0;
     int position = 0;
