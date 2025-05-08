@@ -21,12 +21,49 @@
     #define DEBUG_PRINT(...) ((void)0)
     #define IS_DEBUG 0
 #else
-    #define DEBUG_PRINT_IMPL(fmt, ...) do { \
-        fprintf(stderr, "DEBUG: "); \
-        fprintf(stderr, fmt, ##__VA_ARGS__); \
-        fprintf(stderr, "\n"); \
-    } while(0)
-    #define DEBUG_PRINT(...) DEBUG_PRINT_IMPL(__VA_ARGS__)
+    #ifdef __GNUC__
+        // GCC-specific format checking
+        #define DEBUG_PRINT_IMPL(fmt, ...) do { \
+            fprintf(stderr, "DEBUG: "); \
+            fprintf(stderr, fmt, ##__VA_ARGS__); \
+            fprintf(stderr, "\n"); \
+        } while(0)
+        #define DEBUG_PRINT(fmt, ...) do { \
+            if (__builtin_constant_p(fmt)) { \
+                /* Compile-time format string check */ \
+                extern int fprintf(FILE *stream, const char *format, ...) \
+                    __attribute__((format(printf, 2, 3))); \
+                /* Just check the format, don't print */ \
+                (void)(sizeof(fprintf(stderr, fmt, ##__VA_ARGS__))); \
+            } \
+            DEBUG_PRINT_IMPL(fmt, ##__VA_ARGS__); \
+        } while(0)
+    #else
+        // Non-GCC compilers get runtime checking
+        #define DEBUG_PRINT_IMPL(fmt, ...) do { \
+            fprintf(stderr, "DEBUG: "); \
+            fprintf(stderr, fmt, ##__VA_ARGS__); \
+            fprintf(stderr, "\n"); \
+        } while(0)
+        #define DEBUG_PRINT(fmt, ...) do { \
+            /* Runtime format string validation */ \
+            if (strchr(fmt, '%') != NULL) { \
+                int expected_args = 0; \
+                const char *p = fmt; \
+                while ((p = strchr(p, '%')) != NULL) { \
+                    if (*(p + 1) != '%') expected_args++; \
+                    p++; \
+                } \
+                int actual_args = sizeof((int[]){0, ##__VA_ARGS__}) / sizeof(int) - 1; \
+                if (expected_args != actual_args) { \
+                    fprintf(stderr, "DEBUG_PRINT ERROR: Format string '%s' expects %d arguments but got %d\n", \
+                            fmt, expected_args, actual_args); \
+                    abort(); \
+                } \
+            } \
+            DEBUG_PRINT_IMPL(fmt, ##__VA_ARGS__); \
+        } while(0)
+    #endif
     #define IS_DEBUG 1
 #endif
 
